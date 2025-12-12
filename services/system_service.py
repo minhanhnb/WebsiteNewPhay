@@ -10,54 +10,56 @@ class SystemService:
         self.transaction_repo = transaction_repo
         self.cd_repo = cd_repo
         self.bank_repo = bank_repo
-    def get_full_overview(self, user_id):
+        
+    def get_full_overview(self, user_id, view_date_str=None):
         """
-        Tổng hợp dữ liệu toàn hệ thống (User Wallet, Finsight Fund, Bank NHLK).
-        Tự động tính toán giá trị tài sản (CD) theo giá thị trường hôm nay.
+        Tổng hợp dữ liệu toàn hệ thống tại thời điểm view_date.
         """
-        today = date.today()
+        # 1. Xác định ngày định giá (Valuation Date)
+        if view_date_str:
+            try:
+                target_date = datetime.strptime(view_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                target_date = date.today()
+        else:
+            target_date = date.today()
 
-        # 1. LẤY VÍ USER (TỪ FINSIGHT REPO)
-        # Đây là nguồn dữ liệu duy nhất về tiền và hàng của User
+        # 2. LẤY VÍ USER
         user_wallet = self.finsight_repo.get_user_account(user_id)
         
-        # --- Tính toán giá trị danh mục đầu tư (Mark-to-Market) ---
         total_asset_value = 0.0
-        enriched_assets = [] # Danh sách tài sản kèm giá thị trường để hiển thị chi tiết
+        enriched_assets = []
 
         for asset in user_wallet.assets:
             ma_cd = asset.get('maCD')
             so_luong = int(asset.get('soLuong', 0))
             gia_von = float(asset.get('giaVon', 0))
             
-            # Lấy thông tin gốc CD để tính giá Dynamic hôm nay
             cd_info = self.cd_repo.get_cd_by_id(ma_cd)
             
             current_price = 0
             if cd_info:
-                current_price = self._calculate_cd_price_dynamic(cd_info, today)
+                # [UPDATE] Truyền target_date vào hàm tính giá
+                current_price = self._calculate_cd_price_dynamic(cd_info, target_date)
             
-            # Fallback: Nếu chưa có giá (ví dụ chưa phát hành), dùng tạm giá vốn
             if current_price == 0:
                 current_price = gia_von
 
             current_value = current_price * so_luong
             total_asset_value += current_value
             
-            # Tạo bản copy asset để thêm trường hiển thị (không lưu DB)
             asset_view = asset.copy()
-            asset_view['current_price'] = current_price # Giá hôm nay
-            asset_view['current_value'] = current_value # Tổng giá trị lô này
+            asset_view['current_price'] = current_price
+            asset_view['current_value'] = current_value
             enriched_assets.append(asset_view)
 
-        # Tổng Tài Sản Ròng (Net Worth) = Tiền mặt + Giá trị CD
         total_net_worth = user_wallet.cash + total_asset_value
-
-        # Chuẩn bị object User trả về (Convert to dict và bổ sung các trường tính toán)
         user_data = user_wallet.to_dict()
         user_data['total_net_worth'] = total_net_worth
         user_data['total_asset_value'] = total_asset_value
-        user_data['assets'] = enriched_assets # Trả về list đã có giá thị trường
+        user_data['assets'] = enriched_assets
+
+      
 
         # 2. LẤY QUỸ HỆ THỐNG (FINSIGHT INTERNAL)
         system_fund = self.finsight_repo.get_system_account()
@@ -65,18 +67,30 @@ class SystemService:
         # 3. LẤY DỮ LIỆU ĐỐI CHIẾU (NHLK / BANK)
         bank_data = self.bank_repo.get_system_bank()
 
+       # 4. LẤY SETTLEMENT QUEUE (PENDING LOGS) ---
+        # Để hiển thị lên Dashboard cho Admin xem trước khi bấm Sync
+        pending_docs = self.finsight_repo.get_pending_logs()
+        queue_list = []
+        for doc in pending_docs:
+            data = doc.to_dict()
+            # Format lại data để trả về FE gọn gàng
+            queue_list.append({
+                "id": doc.id,
+                "type": data.get("type"),
+                "amount": data.get("amount", 0),
+                "created_at": data.get("created_at") 
+            })
+
         return {
-            # Data cho từng Tab
             "user": user_data,
             "finsight": system_fund.to_dict(),
             "bank": bank_data.to_dict(),
-            
-            # Trường này dùng cho TTT Dashboard (Số to nhất)
-            "total_balance_estimate": total_net_worth, 
-            
+            "queue": queue_list,
+            "total_balance_estimate": total_net_worth,
             "meta": {
                 "server_time": datetime.now().isoformat(),
-                "valuation_date": today.isoformat()
+                # [UPDATE] Trả về ngày định giá để FE hiển thị đúng
+                "valuation_date": target_date.isoformat() 
             }
         }
     # --- 1. TÍNH TỔNG TÀI SẢN (Dùng cho UI TTT Dashboard) ---

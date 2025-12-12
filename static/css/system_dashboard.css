@@ -161,12 +161,107 @@ body {
     background-color: #ef4444; /* Màu đỏ */
     color: white;
     border: 1px solid #dc2626;
-    font-weight: 700;
-    box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2);
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: all 0.2s;
 }
-
 .btn-reset:hover {
     background-color: #dc2626;
-    color: white;
+    box-shadow: 0 4px 6px rgba(220, 38, 38, 0.2);
     transform: translateY(-1px);
 }
+
+/* 2. Nút Hành động chính (Nền Trắng - Viền Xanh Dương) */
+.btn-outline-primary-minimal {
+    background-color: #ffffff;
+    color: #3b82f6; /* Xanh dương */
+    border: 1px solid #3b82f6;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-outline-primary-minimal:hover {
+    background-color: #eff6ff; /* Nền xanh rất nhạt khi hover */
+    color: #2563eb;
+    border-color: #2563eb;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+    transform: translateY(-1px);
+}
+/* --- NEW LAYOUT: SPLIT CONTROL PANEL --- */
+.control-panel-wrapper {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+/* Cột Trái: Controls (Ngày + Nút) */
+.panel-left {
+    flex: 0 0 300px; /* Cố định chiều rộng */
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 20px;
+    gap: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 15px;
+}
+
+/* Cột Phải: Queue Display */
+.panel-right {
+    flex: 1; /* Chiếm phần còn lại */
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 15px 20px;
+    display: flex;
+    flex-direction: column;
+    height: 180px; /* Chiều cao cố định để scroll */
+}
+
+/* Queue List Style */
+.queue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.queue-list {
+    overflow-y: auto;
+    flex: 1;
+    padding-right: 5px;
+}
+
+.queue-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    border-bottom: 1px dashed #eee;
+    font-size: 0.9rem;
+}
+
+.queue-item:last-child { border-bottom: none; }
+
+.q-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.q-cash-in { background: #d1fae5; color: #065f46; } /* Xanh lá */
+.q-cash-out { background: #fee2e2; color: #991b1b; } /* Đỏ nhạt */
+.q-alloc { background: #dbeafe; color: #1e40af; } /* Xanh dương */
+.q-liq { background: #ffedd5; color: #9a3412; } /* Cam */
+
+/* Scrollbar đẹp cho Queue */
+.queue-list::-webkit-scrollbar { width: 6px; }
+.queue-list::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 3px; }

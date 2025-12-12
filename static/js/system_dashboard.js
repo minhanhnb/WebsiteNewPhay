@@ -18,11 +18,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Date & Clock
     const settleDateInput = document.getElementById("settleDate");
-    if(settleDateInput) settleDateInput.value = new Date().toISOString().split('T')[0];
-    
-    setInterval(() => {
-        document.getElementById('clock').innerText = new Date().toLocaleString('vi-VN');
-    }, 1000);
+    const viewDateInput = document.getElementById("viewDate");
+    const todayStr = new Date().toISOString().split('T')[0];
+    if(settleDateInput) settleDateInput.value = todayStr;
+    if(viewDateInput) viewDateInput.value = todayStr;
 
     // --- TAB SWITCHER ---
     switchTab = function(tabName, el) {
@@ -43,20 +42,33 @@ document.addEventListener("DOMContentLoaded", () => {
     async function loadSystemData() {
         loadingOverlay.style.display = 'flex';
         try {
-            const res = await fetch(`/system/api/overview?user_id=${TEST_USER_ID}`);
+            // Lấy ngày từ input viewDate
+            const vDate = viewDateInput ? viewDateInput.value : todayStr;
+            
+            // Gọi API với query parameter view_date
+            const res = await fetch(`/system/api/overview?user_id=${TEST_USER_ID}&view_date=${vDate}`);
             const result = await res.json();
             
             if (res.ok && result.success) {
+                // ... render logic giữ nguyên ...
                 const { user, bank, finsight } = result.data;
                 renderUserWallet(user, result.data.total_balance_estimate);
                 renderSystemFund(finsight, user);
                 renderBank(bank);
+                renderQueue(result.data.queue); // Fix biến queue thành result.data.queue
             }
         } catch (err) {
             console.error(err);
         } finally {
             loadingOverlay.style.display = 'none';
         }
+    }
+
+    // [NEW] Auto reload khi đổi ngày xem
+    if(viewDateInput) {
+        viewDateInput.addEventListener("change", () => {
+            loadSystemData(); // Gọi lại API ngay khi chọn ngày khác
+        });
     }
 
     // --- RENDER HELPERS ---
@@ -92,7 +104,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 <tr>
                     <td class="fw-bold">${a.maCD}</td>
                     <td class="text-end">${a.soLuong}</td>
-                    <td class="text-end text-muted">${formatMoney(a.giaVon)}</td>
                 </tr>`).join('');
             
             assetDetailsHtml = `
@@ -163,6 +174,59 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${assetHtml}
             </div>
         `;
+    }
+   //Render hàng đợi settle
+    function renderQueue(queue) {
+        const container = document.getElementById("queueContainer");
+        const countBadge = document.getElementById("queueCount");
+        
+        if (!queue || queue.length === 0) {
+            container.innerHTML = `
+                <div class="h-100 d-flex flex-column justify-content-center align-items-center text-muted opacity-50">
+                    <i class="fas fa-check-double fa-2x mb-2"></i>
+                    <small>Tất cả đã được đồng bộ</small>
+                </div>`;
+            countBadge.innerText = "0 lệnh";
+            countBadge.className = "badge bg-light text-muted border";
+            // Disable nút Sync nếu không có gì để sync
+            document.getElementById("btnSyncBank").disabled = true;
+            return;
+        }
+
+        // Enable nút Sync
+        const btnSync = document.getElementById("btnSyncBank");
+        btnSync.disabled = false;
+        btnSync.innerHTML = `<i class="fas fa-sync me-2"></i> Gửi lệnh Lưu ký (${queue.length})`;
+        
+        countBadge.innerText = `${queue.length} chờ xử lý`;
+        countBadge.className = "badge bg-danger";
+
+        // Map loại giao dịch sang tiếng Việt & Style
+        const typeMap = {
+            'CASH_IN': { text: 'Nạp Tiền', class: 'q-cash-in', icon: '+' },
+            'CASH_OUT': { text: 'Rút Tiền', class: 'q-cash-out', icon: '-' },
+            'ALLOCATION_CASH_PAID': { text: 'Thanh toán mua CD', class: 'q-alloc', icon: '-' },
+            'ALLOCATION_ASSET_DELIVERED': { text: 'Nhận CD (Kho)', class: 'q-alloc', icon: '📦' },
+            'LIQUIDATE_CD': { text: 'Bán CD (Kho)', class: 'q-liq', icon: '📦' }
+        };
+
+        const html = queue.map(item => {
+            const map = typeMap[item.type] || { text: item.type, class: 'bg-light', icon: '•' };
+            const amountStr = item.amount > 0 ? formatMoney(item.amount) : '';
+            
+            return `
+                <div class="queue-item">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="q-badge ${map.class}">${map.text}</span>
+                    </div>
+                    <div class="fw-bold text-dark small">
+                        ${map.icon} ${amountStr}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = html;
     }
 
     // --- BUTTON ACTIONS ---

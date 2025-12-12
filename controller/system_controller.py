@@ -9,12 +9,13 @@ class SystemController:
 
     def get_overview(self):
         """
-        API handler: Lấy user_id từ request -> Gọi Service -> Trả JSON
+        API handler: Lấy user_id và view_date từ request -> Gọi Service -> Trả JSON
         """
-        # 1. Lấy tham số
+        # 1. Lấy tham số từ Query String (URL params)
         user_id = request.args.get('user_id')
+        view_date = request.args.get('view_date') # <--- [NEW] Nhận biến ngày xem
         
-        # 2. Validation
+        # 2. Validation cơ bản (view_date có thể null, service sẽ tự handle)
         if not user_id:
             return jsonify({
                 "success": False, 
@@ -23,7 +24,8 @@ class SystemController:
         
         try:
             # 3. Gọi Service
-            data = self.service.get_full_overview(user_id)
+            # [UPDATE] Truyền thêm view_date xuống tầng Business Logic
+            data = self.service.get_full_overview(user_id, view_date)
             
             # 4. Kiểm tra kết quả trả về
             if not data.get('user'):
@@ -39,14 +41,15 @@ class SystemController:
             }), 200
 
         except Exception as e:
-            # Log error (print hoặc dùng logger)
+            # Log error chi tiết để trace lỗi dễ hơn
+            import traceback
+            traceback.print_exc() # In full stack trace ra console server
+            
             print(f"Error in system_controller: {e}")
             return jsonify({
                 "success": False, 
                 "message": "Internal Server Error"
             }), 500
-        
-
     def settle_cash(self):
         try:
             data = request.json

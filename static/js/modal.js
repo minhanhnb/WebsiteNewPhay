@@ -44,32 +44,53 @@ document.addEventListener("DOMContentLoaded", () => {
 
 document.getElementById("save-btn").addEventListener("click", () => {
 
+    const getNumber = (id) => {
+        const element = document.getElementById(id);
+        if (!element || !element.value) return 0; // Trả về 0 nếu rỗng
+
+        // Bước 1: Loại bỏ dấu phẩy ngăn cách hàng nghìn (nếu có, VD: "1,000" -> "1000")
+        const cleanValue = element.value.toString().replace(/,/g, '');
+        
+        // Bước 2: Chuyển sang Float (để nhận cả số thập phân)
+        const numberValue = parseFloat(cleanValue);
+
+        // Bước 3: Kiểm tra NaN (Not a Number), nếu lỗi trả về 0
+        return isNaN(numberValue) ? 0 : numberValue;
+    };
+
+    // Helper lấy string (giữ nguyên logic cũ cho gọn code)
+    const getString = (id) => document.getElementById(id)?.value || "";
+
     const payload = {
         thongTinChung: {
-            maDoiChieu: document.getElementById("ma-doi-chieu").value,
-            toChuc: document.getElementById("to-chuc").value,
-            loaiLaiSuat: document.getElementById("loai-lai-suat").value,
-            CDKhaDung : document.getElementById("so-luong").value,
-            soLuong : document.getElementById("so-luong").value,
-            ngayPhatHanh: document.getElementById("ngay-phat-hanh").value,
-            ngayDaoHan: document.getElementById("ngay-dao-han").value,
-            menhGia: document.getElementById("menh-gia").value,
-            ngayTHQuyen: document.getElementById("ngay-quyen").value,
-            ghiChu: document.getElementById("ghi-chu").value
+            maDoiChieu: getString("ma-doi-chieu"),
+            toChuc: getString("to-chuc"),
+            loaiLaiSuat: getString("loai-lai-suat"),
+            
+            CDKhaDung: getNumber("so-luong"), 
+            soLuong: getNumber("so-luong"),
+            menhGia: getNumber("menh-gia"),
+
+            ngayPhatHanh: getString("ngay-phat-hanh"),
+            ngayDaoHan: getString("ngay-dao-han"),
+            ngayTHQuyen: getString("ngay-quyen"),
+            ghiChu: getString("ghi-chu")
         },
 
         thongTinLaiSuat: {
-           laiSuat: document.getElementById("lai-suat").value,
-            tanSuatTraLai: document.getElementById("tan-suat").value,
-            quyUoc: document.getElementById("quy-uoc").value,
+            laiSuat: getNumber("lai-suat"), // Lãi suất thường là số
+            tanSuatTraLai: getString("tan-suat"),
+            quyUoc: getString("quy-uoc"),
         },
 
         thongTinNhapKho: {
-            ngayTH: document.getElementById("ngay-th").value,
-            ngayTT: document.getElementById("ngay-tt").value,
-            soLuongCD: document.getElementById("so-luong").value,
-            dirtyPrice: document.getElementById("dirty-price").value
-
+            ngayTH: getString("ngay-th"),
+            ngayTT: getString("ngay-tt"),
+            
+            // --- CÁC TRƯỜNG SỐ ĐÃ ĐƯỢC XỬ LÝ ---
+            soLuongCD: getNumber("so-luong"), 
+            dirtyPrice: getNumber("dirty-price")
+            // ------------------------------------
         }
     };
 
