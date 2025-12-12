@@ -15,6 +15,15 @@ class BankRepository(BaseRepository):
         """Hàm cũ: Cập nhật tiền mặt khi Nạp/Rút"""
         self._update_bank_field("tienMatUser", amount)
 
+    def update_system_cash(self, amount):
+        """
+        Cập nhật tiền mặt của Finsight tại Ngân hàng Lưu ký (NHLK).
+        Dùng cho nghiệp vụ: Nhận tiền bán CD từ User hoặc Trả tiền mua lại CD.
+        """
+       
+        self._update_bank_field("tienMatFinsight", amount)
+
+
     def sync_transaction_nhlk(self, total_cost, cd_ids_list):
         """
         Đồng bộ giao dịch mua bán sang NHLK:
@@ -97,3 +106,6 @@ class BankRepository(BaseRepository):
         for doc in docs:
             doc.reference.update({field: firestore.Increment(value)})
             return
+        
+
+    

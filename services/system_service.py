@@ -366,58 +366,83 @@ class SystemService:
         except Exception as e:
             return {"status": "error", "message": str(e)}
     def sync_batch_to_bank(self):
-            logs = self.finsight_repo.get_pending_logs()
-            processed_ids = []
-            
-            total_cash_flow = 0
-            cd_objects_to_add = []      # Sửa tên biến cho rõ nghĩa (List Object)
-            cd_objects_to_remove = []   # List Object
-            
-            for doc in logs:
-                log = doc.to_dict()
-                l_type = log.get('type')
-                amt = float(log.get('amount', 0))
-                
-                # --- 1. CASH FLOW ---
-                if l_type == 'CASH_IN':
-                    total_cash_flow += amt
-                elif l_type == 'CASH_OUT':
-                    total_cash_flow -= amt
-                elif l_type == 'ALLOCATION_CASH_PAID':
-                    total_cash_flow -= amt
+        logs = self.finsight_repo.get_pending_logs() #
+        processed_ids = []
+        
+        # [NEW] Tách biệt dòng tiền của 2 đối tượng để đối soát
+        user_net_cash_flow = 0.0
+        finsight_net_cash_flow = 0.0 
 
-                # --- 2. ASSET TRANSFER (SỬA LỖI TẠI ĐÂY) ---
-                elif l_type == 'ALLOCATION_ASSET_DELIVERED':
-                    # Lấy danh sách chi tiết asset (gồm maCD, soLuong, giaVon...)
-                    assets_delivered = log.get('details', {}).get('assets', [])
-                    for asset in assets_delivered:
-                        # [FIX] Đẩy nguyên object asset vào, KHÔNG chỉ đẩy asset['maCD']
-                        cd_objects_to_add.append(asset) 
-                
-                elif l_type == 'LIQUIDATE_CD':
-                    sold_items = log.get('details', {}).get('sold', [])
-                    for item in sold_items:
-                        # [FIX] Đẩy nguyên object item ({maCD, soLuong...}) để remove
-                        cd_objects_to_remove.append(item)
-
-                processed_ids.append(doc.id)
-
-            if not processed_ids: return {"status": "warning", "message": "Không có gì để Sync"}
+        cd_objects_to_add = []      
+        cd_objects_to_remove = []   
+        
+        for doc in logs:
+            log = doc.to_dict()
+            l_type = log.get('type')
+            amt = float(log.get('amount', 0))
             
-            # [LỆNH 1] UPDATE CASH
-            self.bank_repo.update_user_cash(total_cash_flow)
-            
-            # [LỆNH 2] UPDATE ASSETS
-            # Lưu ý: Hàm sync_assets_ownership bên BankRepo cần đảm bảo xử lý được List Object
-            if cd_objects_to_add or cd_objects_to_remove:
-                self.bank_repo.sync_assets_ownership(cd_objects_to_add, cd_objects_to_remove)
+            # --- 1. CASH FLOW LOGIC ---
+            if l_type == 'CASH_IN':
+                # Nạp tiền: Tiền vào User (Từ nguồn ngoài), Finsight không đổi
+                user_net_cash_flow += amt
 
-            self.finsight_repo.mark_logs_processed(processed_ids)
+            elif l_type == 'CASH_OUT':
+                # Rút tiền: Tiền ra khỏi User, Finsight không đổi
+                user_net_cash_flow -= amt
+
+            elif l_type == 'ALLOCATION_CASH_PAID':
+                # [REQ] Mua CD: User TRẢ tiền (-), Finsight NHẬN tiền (+)
+                user_net_cash_flow -= amt
+                finsight_net_cash_flow += amt 
             
-            return {
-                "status": "success", 
-                "message": f"Đã Sync NHLK. Cash: {total_cash_flow:,.0f}. Assets In: {len(cd_objects_to_add)}, Out: {len(cd_objects_to_remove)}"
-            }
+            elif l_type == 'LIQUIDATE_CD':
+                # [AUTO] Bán CD (Rút vốn): User NHẬN tiền (+), Finsight TRẢ tiền (-)
+                # (Logic này đi kèm với việc update User Cash khi thanh khoản)
+                user_net_cash_flow += amt
+                finsight_net_cash_flow -= amt
+
+                # Xử lý Asset của việc bán (Remove khỏi ví User)
+                sold_items = log.get('details', {}).get('sold', [])
+                for item in sold_items:
+                    cd_objects_to_remove.append(item)
+
+            # --- 2. ASSET TRANSFER LOGIC ---
+            elif l_type == 'ALLOCATION_ASSET_DELIVERED':
+                # Nhận CD về ví
+                assets_delivered = log.get('details', {}).get('assets', [])
+                for asset in assets_delivered:
+                    cd_objects_to_add.append(asset) 
+            
+            processed_ids.append(doc.id)
+
+        if not processed_ids: 
+            return {"status": "warning", "message": "Không có gì để Sync"}
+        
+        # --- THỰC HIỆN GHI VÀO DB (BANK REPO) ---
+
+        # 1. Update User Cash
+        if user_net_cash_flow != 0:
+            self.bank_repo.update_user_cash(user_net_cash_flow) #
+        
+        # 2. [NEW] Update Finsight System Cash (Đối ứng)
+        # Bạn cần đảm bảo BankRepo đã có hàm update_system_cash
+        if finsight_net_cash_flow != 0:
+            self.bank_repo.update_system_cash(finsight_net_cash_flow)
+
+        # 3. Update Assets Ownership
+        if cd_objects_to_add or cd_objects_to_remove:
+            self.bank_repo.sync_assets_ownership(cd_objects_to_add, cd_objects_to_remove) #
+
+        # 4. Đánh dấu đã xử lý
+        self.finsight_repo.mark_logs_processed(processed_ids) #
+        
+        return {
+            "status": "success", 
+            "message": (f"Đã Sync NHLK.\n"
+                        f"- User Cash: {user_net_cash_flow:+,.0f}\n"
+                        f"- Finsight Cash: {finsight_net_cash_flow:+,.0f}\n"
+                        f"- Assets: +{len(cd_objects_to_add)} / -{len(cd_objects_to_remove)}")
+        }
     # ... Helper Functions cũ (tính giá, log trans...) giữ nguyên ...
     def _calculate_cd_price_dynamic(self, cd, date):
         # (Copy y nguyên hàm cũ)
