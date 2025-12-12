@@ -1,11 +1,25 @@
+import os
+import json
 import firebase_admin
 from firebase_admin import credentials, firestore
-from config import Config
 
-# Only initialize if not already initialized
-if not firebase_admin._apps:
-    cred = credentials.Certificate(Config.FIREBASE_CREDENTIALS)
+# Lấy JSON từ Environment Variable
+firebase_json = os.getenv("FIREBASE_JSON")
+
+if firebase_json is None:
+    raise Exception("FIREBASE_JSON environment variable is missing.")
+
+# Chuyển từ string → dict
+cred_dict = json.loads(firebase_json)
+
+# Tạo credential từ dict (không dùng file)
+cred = credentials.Certificate(cred_dict)
+
+# Init firebase admin
+try:
     firebase_admin.initialize_app(cred)
+except ValueError:
+    # Đã init rồi → bỏ qua
+    pass
 
-# Firestore client
 db = firestore.client()
