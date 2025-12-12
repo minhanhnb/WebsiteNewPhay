@@ -2,10 +2,11 @@ from flask import Flask
 from config import Config
 from firebase_config import db  # Import db from firebase_config
 
+# Create Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# # Import and register blueprints
+# Import Blueprints
 from routes.home import home_bp
 app.register_blueprint(home_bp)
 
@@ -16,8 +17,9 @@ from routes.transaction_routes import ttt_bp
 app.register_blueprint(ttt_bp)
 
 from routes.system_routes import system_bp
-
 app.register_blueprint(system_bp)
+
+# Test route
 @app.route("/test")
 def test_firebase():
     doc_ref = db.collection("test_collection").document("demo_doc")
@@ -25,5 +27,7 @@ def test_firebase():
     doc = doc_ref.get()
     return f"Firebase says: {doc.to_dict().get('message')}"
 
+
+# Only run local development server
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
