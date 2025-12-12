@@ -50,6 +50,7 @@ document.getElementById("save-btn").addEventListener("click", () => {
             toChuc: document.getElementById("to-chuc").value,
             loaiLaiSuat: document.getElementById("loai-lai-suat").value,
             CDKhaDung : document.getElementById("so-luong").value,
+            soLuong : document.getElementById("so-luong").value,
             ngayPhatHanh: document.getElementById("ngay-phat-hanh").value,
             ngayDaoHan: document.getElementById("ngay-dao-han").value,
             menhGia: document.getElementById("menh-gia").value,

@@ -110,6 +110,12 @@ class SystemController:
         except Exception as e:
             return jsonify({"message": str(e)}), 500
         
+    def reset_database(self):
+        try:
+            result = self.service.reset_database()
+            return jsonify(result), 200
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500    
 
     def sync_bank(self):
         """API Trigger đồng bộ cuối ngày"""

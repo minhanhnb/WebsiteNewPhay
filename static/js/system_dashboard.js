@@ -1,30 +1,45 @@
-// Biến global để HTML gọi được
-let switchTab;
+let switchTab; // Global function
+
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. CONFIG
     const TEST_USER_ID = "user_default";
     const loadingOverlay = document.getElementById("loading-overlay");
 
-    // Elements
     const containers = {
         user: document.getElementById('user-data-container'),
-        system: document.getElementById('finsight-data-container'),// Tab 2: System Fund
+        system: document.getElementById('finsight-data-container'),
         bank: document.getElementById('bank-data-container')
     };
 
+    const sections = {
+        user: document.getElementById('section-user'),
+        system: document.getElementById('section-system'),
+        bank: document.getElementById('section-bank')
+    };
+
+    // Date & Clock
     const settleDateInput = document.getElementById("settleDate");
     if(settleDateInput) settleDateInput.value = new Date().toISOString().split('T')[0];
+    
+    setInterval(() => {
+        document.getElementById('clock').innerText = new Date().toLocaleString('vi-VN');
+    }, 1000);
 
-    // Helpers
-    const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
-    const createCard = (label, value, icon, isMoney=false, colorClass='text-dark', borderClass='') => `
-        <div class="stat-card ${borderClass}">
-            <i class="${icon} stat-icon"></i>
-            <div class="stat-label">${label}</div>
-            <div class="stat-value ${colorClass}">${isMoney ? formatMoney(value) : value}</div>
-        </div>`;
+    // --- TAB SWITCHER ---
+    switchTab = function(tabName, el) {
+        // Active Style
+        document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
+        if(el) el.classList.add('active');
 
-    // 2. MAIN LOAD DATA
+        // Toggle Content
+        if(tabName === 'all') {
+            Object.values(sections).forEach(s => s.classList.remove('hidden'));
+        } else {
+            Object.values(sections).forEach(s => s.classList.add('hidden'));
+            if(sections[tabName]) sections[tabName].classList.remove('hidden');
+        }
+    };
+
+    // --- DATA LOADING ---
     async function loadSystemData() {
         loadingOverlay.style.display = 'flex';
         try {
@@ -33,10 +48,8 @@ document.addEventListener("DOMContentLoaded", () => {
             
             if (res.ok && result.success) {
                 const { user, bank, finsight } = result.data;
-                
-                // [FIX 1] Truyền cả user vào hàm renderSystemFund
                 renderUserWallet(user, result.data.total_balance_estimate);
-                renderSystemFund(finsight, user); 
+                renderSystemFund(finsight, user);
                 renderBank(bank);
             }
         } catch (err) {
@@ -46,154 +59,112 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // --- RENDER FUNCTIONS ---
+    // --- RENDER HELPERS ---
+    const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
 
-// --- RENDER FUNCTIONS ---
+    // CARD TỐI GIẢN (Bỏ hết tham số màu mè, chỉ còn Label & Value)
+    const createCard = (label, value, isMoney=false) => `
+        <div class="stat-card">
+            <div class="stat-label">${label}</div>
+            <div class="stat-value">${isMoney ? formatMoney(value) : value}</div>
+        </div>`;
 
-    // TAB 1: USER WALLET (Đã sửa: Chỉ hiện Số dư tổng và Tiền mặt)
+    // --- RENDER SECTIONS ---
+
+    // 1. User Wallet
     function renderUserWallet(user, totalEst) {
         if (!user) return;
-        
-        // Tab này bây giờ rất gọn, chỉ tập trung vào Net Worth
         containers.user.innerHTML = `
-            ${createCard('Số dư (Balance)', totalEst, 'fas fa-wallet', true, 'text-success', 'border-success')}
+            ${createCard('Số dư Ví', totalEst, true)}
         `;
     }
 
-
-    // TAB 2: SYSTEM FUND (Đã sửa: Lồng bảng chi tiết vào Card Tổng giá trị CD)
-    // TAB 2: SYSTEM FUND (Đã sửa: Hiện bảng CD luôn, bỏ nút toggle)
+    // 2. System Fund (Kèm Bảng)
     function renderSystemFund(sys, user) {
         if (!sys || !user) return;
         
-        // 1. Tính toán số liệu
-        const totalUserCash = user.cash;
         const totalUserAssetValue = user.total_asset_value || 0;
-
-        // 2. Xây dựng nội dung bảng (Table HTML)
         let assetDetailsHtml = '';
-        
-        const hasAssets = user.assets && user.assets.length > 0;
 
-        if (hasAssets) {
+        // Bảng danh sách CD
+        if (user.assets && user.assets.length > 0) {
             const rows = user.assets.map(a => `
                 <tr>
-                    <td class="fw-bold text-primary">${a.maCD}</td>
-                    <td class="text-end fw-bold">${a.soLuong}</td>
+                    <td class="fw-bold">${a.maCD}</td>
+                    <td class="text-end">${a.soLuong}</td>
                     <td class="text-end text-muted">${formatMoney(a.giaVon)}</td>
                 </tr>`).join('');
             
-            // Render bảng trực tiếp (không dùng class 'collapse')
-            // Thêm style max-height để nếu danh sách dài quá thì cuộn, không làm vỡ giao diện
             assetDetailsHtml = `
-                <div class="mt-3 border-top pt-3">
-                    <div class="small fw-bold text-muted mb-2 text-uppercase" style="font-size: 0.75rem;">
-                        Chi tiết danh mục (${user.assets.length} mã)
-                    </div>
-                    <div class="mini-table-container" style="max-height: 200px; overflow-y: auto;">
-                        <table class="table table-sm table-hover table-borderless mb-0">
-                            <thead class="text-secondary sticky-top bg-white" style="font-size: 0.8rem; text-transform: uppercase;">
-                                <tr>
-                                    <th>Mã CD</th>
-                                    <th class="text-end">Số Lượng</th>
-                                    <th class="text-end">Giá Vốn</th>
-                                </tr>
-                            </thead>
+                <div class="mt-3 pt-2 border-top">
+                    <div class="stat-label mb-2">Danh mục chi tiết</div>
+                    <div style="max-height: 200px; overflow-y: auto;">
+                        <table class="table table-sm table-borderless table-minimal mb-0">
+                            <thead><tr><th>Mã</th><th class="text-end">SL</th></tr></thead>
                             <tbody>${rows}</tbody>
                         </table>
                     </div>
-                </div>
-            `;
+                </div>`;
         } else {
-            // Trường hợp không có tài sản
-            assetDetailsHtml = `
-                <div class="mt-3 border-top pt-3 text-muted fst-italic small">
-                    User chưa nắm giữ CD nào
-                </div>
-            `;
+            assetDetailsHtml = '<div class="mt-3 pt-2 border-top small text-muted">Không có tài sản CD</div>';
         }
 
-        // 3. Render HTML
         containers.system.innerHTML = `
-            ${createCard('Tiền mặt Finsight', sys.tienMatFinSight, 'fas fa-vault', true, 'text-danger', 'border-danger')}            
+            ${createCard('Tiền Finsight', sys.tienMatFinSight, true)}
+            ${createCard('Tiền User', user.cash, true)}
             
-            ${createCard('Tiền mặt User', totalUserCash, 'fas fa-users', true, 'text-primary', 'border-primary')}
-            
-            <div class="stat-card border-info" style="grid-column: 1 / -1;">
-                <div class="d-flex justify-content-between align-items-start">
+            <div class="stat-card" style="grid-column: 1 / -1;">
+                <div class="d-flex justify-content-between">
                     <div>
-                        <div class="stat-label">Tổng Giá trị CD User</div>
-                        <div class="stat-value text-info">${formatMoney(totalUserAssetValue)}</div>
+                        <div class="stat-label">Tài sản CD của User</div>
+                        <div class="stat-value" style="color: var(--accent-color);">${formatMoney(totalUserAssetValue)}</div>
                     </div>
-                    <i class="fas fa-hand-holding-usd stat-icon position-static text-info opacity-25" style="font-size: 3rem;"></i>
                 </div>
-                
                 ${assetDetailsHtml}
             </div>
         `;
     }
-          
 
-   // TAB 3: BANK (Đã sửa: Hiển thị chi tiết Mã CD và Số Lượng)
+    // 3. Bank NHLK
     function renderBank(bank) {
         if (!bank) return;
         
         const assetList = bank.taiSanUser || [];
-        const assetCount = assetList.length;
+        let assetHtml = '';
 
-        // 1. Tạo bảng danh sách Tài sản lưu ký
-        let assetHtml = '<div class="text-center text-muted py-3 small">Chưa có tài sản lưu ký</div>';
-
-        if (assetCount > 0) {
+        if (assetList.length > 0) {
             const rows = assetList.map(a => {
-                // Xử lý an toàn: Nếu data cũ là string (chỉ có mã), hiển thị mã và N/A số lượng
-                // Nếu data mới là object {maCD, soLuong}, hiển thị đầy đủ
-                const code = (typeof a === 'object' && a.maCD) ? a.maCD : a;
-                const qty = (typeof a === 'object' && a.soLuong) ? a.soLuong : 'N/A';
-                
-                return `
-                <tr>
-                    <td class="fw-bold text-info">${code}</td>
-                    <td class="text-end fw-bold">${qty}</td>
-                </tr>`;
+                const code = (typeof a === 'object') ? a.maCD : a;
+                const qty = (typeof a === 'object') ? a.soLuong : '-';
+                return `<tr><td>${code}</td><td class="text-end">${qty}</td></tr>`;
             }).join('');
 
             assetHtml = `
-                <div class="mt-3 border-top pt-3">
-                    <div class="mini-table-container" style="max-height: 200px; overflow-y: auto;">
-                        <table class="table table-sm table-hover table-borderless mb-0">
-                            <thead class="text-secondary sticky-top bg-white" style="font-size: 0.8rem; text-transform: uppercase;">
-                                <tr>
-                                    <th>Mã CD</th>
-                                    <th class="text-end">Số Lượng (Lưu Ký)</th>
-                                </tr>
-                            </thead>
+                <div class="mt-3 pt-2 border-top">
+                    <div class="stat-label mb-2">Danh mục Lưu Ký</div>
+                    <div style="max-height: 150px; overflow-y: auto;">
+                        <table class="table table-sm table-borderless table-minimal mb-0">
+                            <thead><tr><th>Mã</th><th class="text-end">SL</th></tr></thead>
                             <tbody>${rows}</tbody>
                         </table>
                     </div>
-                </div>
-            `;
+                </div>`;
+        } else {
+            assetHtml = '<div class="mt-3 pt-2 border-top small text-muted">Chưa lưu ký</div>';
         }
 
-        // 2. Render Giao diện
         containers.bank.innerHTML = `
-            ${createCard('Tiền mặt User ', bank.tienMatUser, 'fas fa-user-lock', true, 'text-info', 'border-info')}
-            
-            ${createCard('Tiền mặt Finsight', bank.tienMatFinsight, 'fas fa-building-columns', true, 'text-secondary')}
-            
+            ${createCard('Tiền Finsight', bank.tienMatFinsight, true)}
+            ${createCard('Tiền User', bank.tienMatUser, true)}
+
             <div class="stat-card" style="grid-column: 1 / -1;">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="stat-label"> CD User</div>
-                        <div class="stat-value text-dark">${assetCount} <span class="fs-6 text-muted fw-normal">mã tài sản</span></div>
-                    </div>
-                    <i class="fas fa-file-contract stat-icon position-static text-dark opacity-25" style="font-size: 3rem;"></i>
-                </div>
-                
+                <div class="stat-label">Tài sản User</div>
+                <div class="stat-value">${assetList.length} <span style="font-size: 1rem; font-weight: 400; color: #999;">mã</span></div>
                 ${assetHtml}
             </div>
         `;
     }
+
     // --- BUTTON ACTIONS ---
     async function callApi(url, body) {
         loadingOverlay.style.display = 'flex';
@@ -204,31 +175,35 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify(body)
             });
             const data = await res.json();
-            alert((data.success ? "✅ " : "⚠️ ") + data.message);
+            alert((data.success ? "Thành công" : "Lỗi") + ": " + data.message);
             if(data.success) loadSystemData();
         } catch(e) {
-            alert("Lỗi kết nối");
+            alert("Lỗi kết nối server");
         } finally {
             loadingOverlay.style.display = 'none';
         }
-        
     }
 
     document.getElementById("btnSettle")?.addEventListener("click", () => {
-        const date = settleDateInput.value;
-        if(confirm(`Chốt sổ ngày ${date}?`)) callApi("/system/api/settle", { date });
+        if(confirm("Xác nhận Chốt Sổ?")) callApi("/system/api/settle", { date: settleDateInput.value });
     });
-
     document.getElementById("btnAllocate")?.addEventListener("click", () => {
-        const date = settleDateInput.value;
-        if(confirm(`Chạy phân bổ CD ngày ${date}?`)) callApi("/system/api/allocate", { date, user_id: TEST_USER_ID });
+        if(confirm("Xác nhận Phân Bổ CD?")) callApi("/system/api/allocate", { date: settleDateInput.value, user_id: TEST_USER_ID });
     });
-
     document.getElementById("btnSyncBank")?.addEventListener("click", () => {
-        if(confirm("Sync sang NHLK?")) callApi("/system/api/sync-bank", {});
-
+        if(confirm("Xác nhận Đồng bộ sang NHLK?")) callApi("/system/api/sync-bank", {});
     });
 
-    // Init
+    document.getElementById("btnResetData")?.addEventListener("click", async () => {
+        // Cảnh báo 2 lớp để tránh bấm nhầm
+        if (!confirm("⚠️ NGUY HIỂM: Bạn có chắc chắn muốn XÓA TOÀN BỘ dữ liệu (Ngoại trừ thông tin CD)?")) return;
+        if (!confirm("Xác nhận lần cuối: Hành động này không thể hoàn tác. Mọi tài khoản, giao dịch sẽ mất tại Ví User, CoreTVAM và NHLK.")) return;
+
+        await callApi("/system/api/reset", {});
+        
+        // Sau khi reset, reload lại trang để về trạng thái trắng
+        window.location.reload();
+    });
+
     loadSystemData();
 });

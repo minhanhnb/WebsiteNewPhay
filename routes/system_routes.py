@@ -57,3 +57,8 @@ def api_withdraw():
 def api_sync_bank():
     """Gọi Controller để xử lý việc đẩy log giao dịch sang Bank"""
     return controller.sync_bank()
+
+
+@system_bp.route("/system/api/reset", methods=["POST"])
+def api_reset_database():
+    return controller.reset_database()

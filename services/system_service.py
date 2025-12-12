@@ -1,6 +1,7 @@
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from config import USER_INTEREST_RATE
+from firebase_admin import firestore
 import math 
 
 class SystemService:
@@ -301,6 +302,55 @@ class SystemService:
         self._log_transaction(user_id, "RUT", amount, date_str, f"Rút (Bán {len(assets_to_sell)} CD)")
         return {"status": "success", "message": "Rút tiền & Thanh khoản thành công"}
 
+    def reset_database(self):
+        """
+        DANGER: Xóa toàn bộ dữ liệu trong các Collection của hệ thống.
+        Dùng cho mục đích Reset Test Case.
+        """
+        db = firestore.client()
+        
+        # Danh sách các collection cần xóa
+        target_collections = [
+            'finsight_users',       # Ví User
+            'finsight_system',      # Quỹ hệ thống
+            'bank',                 # NHLK
+            'transactions',         # Lịch sử giao dịch
+            'settlement_queue'      # Log chờ Sync
+        ]
+
+        deleted_count = 0
+
+        try:
+            for coll_name in target_collections:
+                coll_ref = db.collection(coll_name)
+                # Xóa từng document trong collection (Batch delete để nhanh hơn)
+                docs = coll_ref.stream()
+                batch = db.batch()
+                count = 0
+                
+                for doc in docs:
+                    batch.delete(doc.reference)
+                    count += 1
+                    deleted_count += 1
+                    # Firestore giới hạn batch 500 ops
+                    if count >= 400:
+                        batch.commit()
+                        batch = db.batch()
+                        count = 0
+                
+                if count > 0:
+                    batch.commit() # Commit phần còn lại
+
+            # Reset lại User Default và System Account về trạng thái ban đầu (Optional)
+            # Nếu muốn sạch trơn thì không cần làm gì thêm.
+            
+            return {
+                "status": "success", 
+                "message": f"Hệ thống đã được Reset! Đã xóa {deleted_count} documents."
+            }
+
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
     def sync_batch_to_bank(self):
             logs = self.finsight_repo.get_pending_logs()
             processed_ids = []

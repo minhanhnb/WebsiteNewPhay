@@ -1,228 +1,172 @@
-/* --- GLOBAL LAYOUT --- */
+/* --- GLOBAL MINIMALIST THEME --- */
 :root {
-    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --success-gradient: linear-gradient(135deg, #2af598 0%, #009efd 100%);
-    --info-gradient: linear-gradient(135deg, #13547a 0%, #80d0c7 100%);
-    --bg-light: #f4f7f6;
-    --text-dark: #2c3e50;
-    --card-shadow: 0 10px 20px rgba(0,0,0,0.05);
+    --primary-color: #2c3e50;   /* Màu xám đen chủ đạo */
+    --accent-color: #3b82f6;    /* Màu xanh dương nhấn */
+    --bg-body: #f8f9fa;         /* Màu nền xám rất nhạt */
+    --border-color: #e5e7eb;
+    --text-muted: #6b7280;
+    --radius: 8px;              /* Bo góc nhẹ */
+}
+
+body {
+    background-color: var(--bg-body);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--primary-color);
 }
 
 .system-container {
-    max-width: 1300px;
-    margin: 30px auto;
-    padding: 0 20px;
-    font-family: 'Segoe UI', system-ui, sans-serif;
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 15px;
 }
 
-/* --- HEADER & CONTROLS --- */
-.page-header h2 {
-    font-weight: 800;
-    color: var(--text-dark);
-    letter-spacing: -0.5px;
-}
-
-/* Control Panel Card */
-.control-card {
-    border: none;
-    border-radius: 16px;
+/* --- COMPACT CONTROL BAR --- */
+.control-bar {
     background: #fff;
-    box-shadow: var(--card-shadow);
-    padding: 25px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    flex-wrap: wrap;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .control-label {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #95a5a6;
-    margin-bottom: 8px;
-    font-weight: 700;
-    display: block;
-}
-
-/* Modern Inputs */
-.form-control-modern {
-    border: 2px solid #eef2f7;
-    border-radius: 10px;
-    padding: 10px 15px;
+    font-size: 0.85rem;
     font-weight: 600;
-    color: var(--text-dark);
-    transition: all 0.3s;
-}
-.form-control-modern:focus {
-    border-color: #764ba2;
-    box-shadow: 0 0 0 3px rgba(118, 75, 162, 0.1);
+    color: var(--text-muted);
+    white-space: nowrap;
 }
 
-/* Modern Buttons */
-.btn-modern {
-    border: none;
-    border-radius: 10px;
-    padding: 10px 20px;
-    font-weight: 600;
-    color: white;
-    transition: transform 0.2s, box-shadow 0.2s;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+.form-control-compact {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    color: var(--primary-color);
 }
 
-.btn-modern:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-    color: white;
-}
-
-.btn-settle { background: var(--success-gradient); }
-.btn-allocate { background: var(--primary-gradient); }
-.btn-sync { background: var(--info-gradient); }
-
-/* --- NAVIGATION TABS --- */
-.nav-pills-custom {
+/* Minimal Buttons */
+.btn-minimal {
     background: #fff;
-    padding: 10px;
-    border-radius: 16px;
-    box-shadow: var(--card-shadow);
-    display: inline-flex;
-    gap: 10px;
+    border: 1px solid var(--border-color);
+    color: var(--primary-color);
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-minimal:hover {
+    background: var(--bg-body);
+    border-color: #d1d5db;
+}
+
+.btn-primary-minimal {
+    background: var(--primary-color);
+    color: white;
+    border: 1px solid var(--primary-color);
+}
+.btn-primary-minimal:hover {
+    background: #1a252f;
+    color: white;
+}
+
+/* --- TABS (Simple Text) --- */
+.nav-tabs-minimal {
+    border-bottom: 2px solid var(--border-color);
     margin-bottom: 25px;
-}
-
-.nav-pills-custom .nav-link {
-    border-radius: 10px;
-    color: #7f8c8d;
-    font-weight: 600;
-    padding: 10px 25px;
-    transition: all 0.3s;
-    cursor: pointer;
-}
-
-.nav-pills-custom .nav-link:hover {
-    background: #f8f9fa;
-    color: #2c3e50;
-}
-
-.nav-pills-custom .nav-link.active {
-    background: var(--text-dark);
-    color: #fff;
-    box-shadow: 0 4px 10px rgba(44, 62, 80, 0.3);
-}
-
-/* --- DASHBOARD CONTENT --- */
-.section-wrapper {
-    background: #fff;
-    border-radius: 20px;
-    padding: 30px;
-    box-shadow: var(--card-shadow);
-    margin-bottom: 30px;
-    border: 1px solid #f0f0f0;
-    animation: fadeIn 0.4s ease-in-out;
-}
-
-.section-header {
     display: flex;
-    align-items: center;
-    margin-bottom: 25px;
-    padding-bottom: 15px;
-    border-bottom: 2px solid #f4f6f9;
+    gap: 30px;
 }
 
-.section-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--text-dark);
-    margin: 0;
+.tab-link {
+    padding: 10px 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.2s;
 }
 
-/* Grid Layout */
+.tab-link:hover { color: var(--primary-color); }
+
+.tab-link.active {
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+}
+
+/* --- COMPACT CARDS --- */
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 25px;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
 }
 
-/* Stat Cards */
 .stat-card {
     background: #fff;
-    border-radius: 16px;
-    padding: 25px;
-    position: relative;
-    border: 1px solid #f0f0f0;
-    transition: all 0.3s ease;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 15px 20px;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    min-height: 140px;
-    overflow: hidden;
+    min-height: 100px;
 }
 
-.stat-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 15px 30px rgba(0,0,0,0.08);
-    border-color: transparent;
-}
-
-.stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; width: 6px; height: 100%;
-    background: #e0e0e0;
-    border-radius: 4px 0 0 4px;
-}
-
-/* Border colors */
-.border-primary::before { background: #667eea; }
-.border-success::before { background: #2af598; }
-.border-danger::before { background: #ff6b6b; }
-.border-info::before { background: #13547a; }
-
-.stat-icon {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    font-size: 2.5rem;
-    opacity: 0.1;
-    color: var(--text-dark);
-}
-
+/* Loại bỏ màu mè, chỉ dùng text */
 .stat-label {
-    font-size: 0.85rem;
-    font-weight: 700;
+    font-size: 0.75rem;
     text-transform: uppercase;
-    color: #95a5a6;
-    margin-bottom: 10px;
+    color: var(--text-muted);
+    margin-bottom: 5px;
     letter-spacing: 0.5px;
 }
 
 .stat-value {
-    font-size: 1.8rem;
-    font-weight: 800;
-    color: var(--text-dark);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
     line-height: 1.2;
 }
 
-/* Table in Card */
-.mini-table-container {
-    margin-top: 15px;
-    background: #f8f9fa;
-    border-radius: 10px;
-    padding: 10px;
-}
-.table-mini th {
+/* Table Style Minimal */
+.table-minimal th {
     font-size: 0.75rem;
-    text-transform: uppercase;
-    color: #7f8c8d;
-}
-.table-mini td {
-    font-size: 0.9rem;
+    color: var(--text-muted);
     font-weight: 600;
-    color: var(--text-dark);
+    border-bottom: 1px solid var(--border-color);
+}
+.table-minimal td {
+    font-size: 0.9rem;
+    color: var(--primary-color);
+    padding: 8px 0;
 }
 
-/* Utilities */
-.hidden { display: none !important; }
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+.section-wrapper.hidden { display: none; }
+/* Thêm vào cuối file */
+.btn-reset {
+    background-color: #ef4444; /* Màu đỏ */
+    color: white;
+    border: 1px solid #dc2626;
+    font-weight: 700;
+    box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2);
+}
+
+.btn-reset:hover {
+    background-color: #dc2626;
+    color: white;
+    transform: translateY(-1px);
 }
