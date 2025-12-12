@@ -4,8 +4,9 @@ from datetime import datetime
 class FinsightUser:
     def __init__(self, user_id, cash=0, assets=None):
         self.user_id = user_id
-        self.cash = float(cash)  # Cash Remainder (Tiền mặt thực có)
-        self.assets = assets if isinstance(assets, list) else [] # List Asset {maCD, soLuong, giaVon...}
+        # [FIX] Dùng (cash or 0) để tránh lỗi float(None)
+        self.cash = float(cash or 0)  
+        self.assets = assets if isinstance(assets, list) else []
         self.last_updated = datetime.now().isoformat()
 
     def to_dict(self):
@@ -16,11 +17,12 @@ class FinsightUser:
             "last_updated": self.last_updated
         }
 
-# 2. Cấu trúc tài khoản HỆ THỐNG (FS Account)
+# 2. Cấu trúc tài khoản HỆ THỐNG
 class FinsightSystem:
     def __init__(self, cash=0, assets_value=0):
-        self.cash = float(cash)         # Tiền mặt nội bộ của FS (Doanh thu bán CD...)
-        self.assets_value = float(assets_value) # Giá trị tài sản nội bộ
+        # [FIX] Dùng (val or 0)
+        self.cash = float(cash or 0)
+        self.assets_value = float(assets_value or 0)
         self.last_updated = datetime.now().isoformat()
 
     def to_dict(self):

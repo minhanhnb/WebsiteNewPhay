@@ -18,7 +18,7 @@ class CD:
             "ngayDaoHan": thongTinChung.get("ngayDaoHan"),
             "menhGia": thongTinChung.get("menhGia"),
             "soLuong": thongTinChung.get("soLuong"),
-            "CDKhaDung": None, 
+            "CDKhaDung": thongTinChung.get("CDKhaDung"),
             "ngayTHQuyen": thongTinChung.get("ngayTHQuyen"),
             "loaiLaiSuat": thongTinChung.get("loaiLaiSuat"),
             "ghiChu": thongTinChung.get("ghiChu"),

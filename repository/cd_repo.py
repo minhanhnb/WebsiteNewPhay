@@ -60,31 +60,6 @@ class CDRepository:
         return cds
    
 
-    def decrease_stock(self, cd_id, quantity):
-        """Trừ kho khi User mua"""
-        doc_ref = self.collection.document(cd_id)
-        doc_ref.update({
-            "thongTinChung.CDKhaDung": firestore.Increment(-quantity)
-        })
-
-    def increase_stock(self, ma_doi_chieu, quantity):
-        """
-        [MỚI] Cộng kho khi User bán lại (Nhập kho)
-        """
-        doc_ref = self.collection.document(ma_doi_chieu)
-        doc_ref.update({
-            "thongTinChung.CDKhaDung": firestore.Increment(quantity)
-        })
-
-    def get_cd_by_id(self, maDoiChieu):
-        try:
-            doc = self.collection.document(maDoiChieu).get()
-            if doc.exists:
-                return doc.to_dict()
-            return None
-        except Exception as e:
-            print("Repo error:", e)
-            return None
         
 
     def update_cd_price(self, maDoiChieu, giaBanMoi, ngayCapNhat):
@@ -107,42 +82,51 @@ class CDRepository:
         
 
     def get_sellable_cds(self):
-        """
-        Lấy danh sách CD có thể bán (Số lượng khả dụng > 0 và Có giá bán hôm nay)
-        """
-        # Lưu ý: Firestore query filter nested fields
-        # Giả định structure: thongTinChung.CDKhaDung > 0
-        # Tuy nhiên để chắc chắn, ta fetch all rồi filter python cho an toàn logic phức tạp
+        """Lấy danh sách CD khả dụng để bán"""
         docs = self.collection.stream()
         results = []
         for doc in docs:
             data = doc.to_dict()
             c1 = data.get("thongTinChung", {})
-            c4 = data.get("thongTinGia", {}) or {} # Handle case None
+            c4 = data.get("thongTinGia", {}) or {} # Đề phòng c4 là None
             
-            # Logic Filter: 
-            # 1. Phải có mã đối chiếu
-            # 2. Số lượng khả dụng > 0 (Nếu null thì dùng soLuong gốc)
-            # 3. Phải có giá bán hôm nay
+            # [FIX] Xử lý an toàn cho Số lượng
             sl_kha_dung = c1.get("CDKhaDung")
             if sl_kha_dung is None: 
-                sl_kha_dung = float(c1.get("soLuong", 0))
+                # Nếu soLuong cũng None thì về 0
+                sl_kha_dung = float(c1.get("soLuong") or 0)
+            else:
+                sl_kha_dung = float(sl_kha_dung)
             
-            gia_ban = float(c4.get("giaBanHomNay", 0))
-
-            if sl_kha_dung > 0 and gia_ban > 0:
-                # Attach ID và real stock để dễ xử lý
+            # Chỉ lấy hàng còn trong kho
+            if sl_kha_dung > 0:
                 data['system_id'] = doc.id
                 data['real_stock'] = sl_kha_dung
-                data['current_price'] = gia_ban
+                
+                # [FIX] Xử lý an toàn cho Giá bán
+                # Nếu giaBanHomNay là None -> float(None) sẽ lỗi -> dùng (val or 0)
+                try:
+                    price = float(c4.get("giaBanHomNay") or 0)
+                except:
+                    price = 0
+
+                data['current_price'] = price
                 results.append(data)
         
         return results
 
     def decrease_stock(self, cd_id, quantity):
-        """Trừ kho CD (Atomic)"""
         doc_ref = self.collection.document(cd_id)
-        # Lưu ý: Cấu trúc data của bạn là thongTinChung.CDKhaDung
         doc_ref.update({
             "thongTinChung.CDKhaDung": firestore.Increment(-quantity)
         })
+
+    def increase_stock(self, ma_doi_chieu, quantity):
+        doc_ref = self.collection.document(ma_doi_chieu)
+        doc_ref.update({
+            "thongTinChung.CDKhaDung": firestore.Increment(quantity)
+        })
+
+    def get_cd_by_id(self, ma_doi_chieu):
+        doc = self.collection.document(ma_doi_chieu).get()
+        return doc.to_dict() if doc.exists else None
