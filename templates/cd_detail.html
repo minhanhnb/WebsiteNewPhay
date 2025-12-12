@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cd_detail.css') }}">
+<style>
+   .chart-container {
+        position: relative; height: 400px; width: 100%; margin-top: 20px;
+    }
+    .control-panel {
+        background: #f1f3f5; padding: 20px; border-radius: 12px;
+        display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;
+    }
+    .control-group {
+        display: flex; flex-direction: column;
+    }
+    .control-group label {
+        font-weight: 600; margin-bottom: 5px; font-size: 0.9rem;
+    }
+    .form-control {
+        padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 1rem;
+    }
+    .price-display {
+        margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    }
+    .price-box {
+        background: #fff; padding: 15px; border-radius: 8px; 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-left: 5px solid #ccc;
+    }
+    .price-box h4 { margin: 0 0 5px 0; font-size: 0.9rem; color: #666; }
+    .price-value { font-size: 1.4rem; font-weight: bold; color: #333; }
+    .color-yield { border-color: rgb(255, 99, 132); }
+    .color-custom { border-color: rgb(54, 162, 235); }
+</style>
+{% endblock %}
+{% block body_attrs %} data-ma="{{ maDoiChieu }}" {% endblock %}
+
+{% block content %}
+<div class="detail-container">
+    <h2>Chi tiết CD – {{ maDoiChieu }}</h2>
+
+    <div class="card">
+        <h3>Mô phỏng giá trị</h3>
+        
+        <div class="control-panel">
+            <div class="control-group">
+                <label>Ngày bán dự kiến (M/D/Y)</label>
+                <input type="date" id="simulationDate" class="form-control">
+            </div>
+
+            <div class="control-group">
+                <label>Lãi suất kỳ vọng (%/năm):</label>
+                <input type="number" id="userInterestRate" class="form-control" step="0.01" value="5.0">
+            </div>
+            
+            <div class="control-group" style="justify-content: center;">
+                <button id="btnReset" style="padding: 8px 16px; cursor:pointer;">Về hôm nay</button>
+            </div>
+        </div>
+
+        <div class="price-display">
+            <div class="price-box color-yield">
+                <h4>Giá theo Yield (Market)</h4>
+                <div id="displayPriceYield" class="price-value">Loading...</div>
+            </div>
+            <div class="price-box color-custom">
+                <h4>Giá theo Công thức riêng</h4>
+                <div id="displayPriceCustom" class="price-value">Loading...</div>
+            </div>
+            <div class="price-box color-market-value">
+                <h4>Market Value</h4>
+                <div id="displayMarketValue" class="price-value">Loading...</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="priceChart"></canvas>
+        </div>
+    </div>
+    <div class="card simulation-card" style="margin-top: 25px; border-top: 4px solid #6c5ce7;">
+    <h3>📊 So sánh Kịch bản Lãi suất (Test Case)</h3>
+    
+    <div class="simulation-controls">
+        <div class="sim-group">
+            <label>Lãi suất Hiện tại (A):</label>
+            <input type="text" id="simRateCurrent" class="form-control" readonly disabled style="background: #e9ecef;">
+        </div>
+        <div class="sim-group">
+            <label>Lãi suất Mới / Giả định (B):</label>
+            <input type="number" id="simRateNew" class="form-control" step="0.1" placeholder="Nhập %...">
+        </div>
+        <div class="sim-group">
+             <button id="btnRunTest" class="btn-primary">Chạy Test</button>
+        </div>
+    </div>
+
+    <div class="table-responsive" style="margin-top: 15px;">
+        <table class="table-comparison">
+            <thead>
+                <tr>
+                    <th>Loại giá</th>
+                    <th>Giá theo LS Hiện tại (A)</th>
+                    <th>Giá theo LS Giả định (B)</th>
+                    <th>Chênh lệch (Delta)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Giá Yield (Market)</strong></td>
+                    <td id="tdYieldA">---</td>
+                    <td id="tdYieldB">---</td>
+                    <td id="tdYieldDiff">---</td>
+                </tr>
+                <tr>
+                    <td><strong>Giá Công thức Riêng</strong></td>
+                    <td id="tdCustomA">---</td>
+                    <td id="tdCustomB">---</td>
+                    <td id="tdCustomDiff">---</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div style="margin-top: 10px; text-align: right;">
+        <small><i>* Số liệu tính toán dựa trên Ngày được chọn ở trên.</i></small>
+        <button id="btnApplyRate" style="display:none; margin-left: 10px; background: #2ecc71; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+            Áp dụng Lãi suất mới này
+        </button>
+    </div>
+</div>
+    <div id="cd-info">
+
+        <!-- Thông tin chung -->
+        <div class="card">
+            <h3>Thông tin chung</h3>
+            <div class="row">
+                <div><strong>Mã đối chiếu:</strong> <span id="maDoiChieu"></span></div>
+                <div><strong>Tổ chức phát hành:</strong> <span id="TCPH"></span></div>
+                <div><strong>Ngày phát hành:</strong> <span id="ngayPhatHanh"></span></div>
+                <div><strong>Ngày đáo hạn:</strong> <span id="ngayDaoHan"></span></div>
+                <div><strong>Mệnh giá:</strong> <span id="menhGia"></span></div>
+                <div><strong>Số lượng:</strong> <span id="soLuong"></span></div>
+                <div><strong>CD khả dụng:</strong> <span id="CDKhaDung"></span></div>
+
+                <!-- 3 trường bổ sung -->
+                <div><strong>Ngày thực hiện quyền:</strong> <span id="ngayTHQuyen"></span></div>
+                <div><strong>Loại lãi suất:</strong> <span id="loaiLaiSuat"></span></div>
+                <div><strong>Ghi chú:</strong> <span id="ghiChu"></span></div>
+            </div>
+        </div>
+
+        <!-- Thông tin lãi suất -->
+        <div class="card">
+            <h3>Thông tin lãi suất</h3>
+            <div class="row">
+                <div><strong>Lãi suất:</strong> <span id="laiSuat"></span></div>
+                <div><strong>Quy ước ngày:</strong> <span id="quyUocNgay"></span></div>
+                <div><strong>Tần suất trả lãi:</strong> <span id="tanSuatTraLai"></span></div>
+            </div>
+        </div>
+
+        <!-- Thông tin nhập kho -->
+        <div class="card">
+            <h3>Thông tin nhập kho</h3>
+            <div class="row">
+                <div><strong>Dirty Price:</strong> <span id="dirtyPrice"></span></div>
+                <div><strong>Clean Price:</strong> <span id="cleanPrice"></span></div>
+                <div><strong>Ngày thực hiện:</strong> <span id="ngayThucHien"></span></div>
+                <div><strong>Ngày thực tế:</strong> <span id="ngayThucTe"></span></div>
+                <div><strong>Số lượng nhập kho:</strong> <span id="soLuongNhapKho"></span></div>
+            </div>
+        </div>
+
+        <!-- Thông tin giá bán -->
+        <div class="card">
+            <h3>Thông tin giá</h3>
+            <div class="row">
+                <div><strong>Accrued Interest (AI):</strong> <span id="AI"></span></div>
+                <div><strong>Market Value TKO:</strong> <span id="marketValueTKO"></span></div>
+                <div><strong>Giá bán hôm nay:</strong> <span id="giaBanHomNay"></span></div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/cd_detail.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,110 @@
+.card {
+    background: #fff;
+    padding: 20px;
+    border-radius: 14px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    margin-top: 20px;
+}
+
+/* Header table */
+.table-header {
+    margin-bottom: 12px;
+}
+.table-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* Table */
+.modern-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.modern-table thead th {
+    text-align: left;
+    padding: 12px;
+    background: #f7f7f7;
+    font-weight: 600;
+    border-bottom: 2px solid #eee;
+}
+
+.modern-table tbody td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.modern-table tbody tr {
+    transition: background 0.2s ease;
+    cursor: pointer;
+}
+
+.modern-table tbody tr:hover {
+    background: #fafafa;
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 18px;
+}
+
+.pagination button {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    background: #fff;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.pagination button.active {
+    background: #007bff;
+    color: #fff;
+    border-color: #007bff;
+}
+
+.pagination button:hover {
+    background: #f0f0f0;
+}
+
+/* Modal chi tiết */
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content.detail {
+    width: 420px;
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.close-btn {
+    border: none;
+    background: transparent;
+    font-size: 20px;
+    cursor: pointer;
+}

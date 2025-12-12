@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modal.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cd_list.css') }}">
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/modal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/cd_list.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Kho CD</h2>
+    <div class="actions">
+        <button id="btn-sync-price" class="secondary" style="margin-right: 10px;">
+            🔄 Đồng bộ Giá hôm nay
+        </button>
+        <button id="btn-open-add-cd" class="primary">+ Thêm CD</button>
+
+    </div>
+</div>
+<div class="card">
+    <div class="table-header">
+        <h3>Danh sách Chứng Chỉ Tiền Gửi</h3>
+    </div>
+
+    <table class="modern-table">
+        <thead>
+            <tr>
+                <th>Mã đối chiếu</th>
+                <th>CD khả dụng</th>
+                <th>Hành động</th>
+            </tr>
+        </thead>
+        <tbody id="cd-table-body">
+            <!-- JS sẽ render -->
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    <div class="pagination" id="pagination"></div>
+</div>
+
+
+<!-- Include popup component -->
+{% include "components/modal_add_cd.html" %}
+{% endblock %}

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title if title else "Dashboard" }}</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 220px;
+            background-color: #1f2937; /* Màu xám đậm kiểu Dashboard */
+            height: 100vh;
+            padding-top: 20px;
+            color: white;
+            position: fixed;
+        }
+
+        .sidebar h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 20px;
+        }
+
+        .sidebar a {
+            display: block;
+            padding: 12px 20px;
+            color: white;
+            text-decoration: none;
+            font-size: 16px;
+        }
+
+        .sidebar a:hover {
+            background-color: #374151;
+        }
+
+        /* Main content */
+        .main-content {
+            margin-left: 220px;
+            padding: 25px;
+            width: calc(100% - 220px);
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+
+</head>
+
+<body {% block body_attrs %}{% endblock %}>
+
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h2>TTT Dashboard</h2>
+
+        <a href="/">🏠 Home</a>
+        <a href="/ttt">Túi Thần Tài</a>
+        
+        <a href="/system">Quản lý hệ thống</a>
+
+        <a href="/cd">Kho CD</a>
+    </div>
+
+    <!-- Content -->
+    <div class="main-content">
+        {% block content %}
+        {% endblock %}
+    </div>
+   {% block extra_js %}{% endblock %}
+</body>
+</html>

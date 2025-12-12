@@ -1,0 +1,173 @@
+<div id="modal-add-cd" class="modal-overlay hidden"> 
+    
+    <div class="modal-content">
+
+        <div class="modal-header">
+        <h2>Chỉnh sửa CD</h2>
+        <span class="close-btn">✕</span>
+        </div>
+
+        <!-- TAB HEADER -->
+        <div class="tab-header">
+            <button class="tab-btn active" data-tab="info-tab">Thông tin</button>
+            <button class="tab-btn" data-tab="import-tab">Nhập kho</button>
+        </div>
+
+        <!-- TAB CONTENT -->
+       
+        <!-- CONTENT SCROLL ZONE -->
+        <div class="modal-body">
+            <!-- TAB 1: THÔNG TIN CD -->
+            <div id="info-tab" class="tab-pane active">
+
+                <div class="grid-3">
+
+                    <!-- Mã đối chiếu chuẩn -->
+                    <div class="form-group">
+                        <label>Mã đối chiếu chuẩn *</label>
+                        <input id="ma-doi-chieu" type="text" placeholder="CI83289429" />
+                    </div>
+
+                    <!-- Tổ chức phát hành -->
+                    <div class="form-group">
+                        <label>Tổ chức phát hành *</label>
+                        <select id="to-chuc">
+                            <!-- TODO: Thay list Tổ chức phát hành -->
+                            <option value="">Chọn tổ chức</option>
+                            <option>Techcombank</option>
+                            <option>VPBank</option>
+                            <option>TPBank</option>
+                        </select>
+                    </div>
+
+                    <!-- Loại lãi suất -->
+                    <div class="form-group">
+                        <label>Loại lãi suất *</label>
+                        <select id="loai-lai-suat">
+                            <!-- TODO: Thay bằng: Cố định / Thả nổi -->
+                            <option value="">Chọn loại</option>
+                            <option>Cố định</option>
+                            <option>Thả nổi</option>
+                        </select>
+                    </div>
+
+                    <!-- Lãi suất -->
+                    <div class="form-group">
+                        <label>Lãi suất (%/năm) *</label>
+                        <input id="lai-suat" type="number" placeholder="6" />
+                    </div>
+
+                    <!-- Tần suất trả lãi -->
+                    <div class="form-group">
+                        <label>Tần suất trả lãi *</label>
+                        <select id="tan-suat">
+                            <!-- TODO: Cuối kỳ / Hàng năm / Bán niên / Theo quý -->
+                            <option value="">Chọn</option>
+                            <option>Cuối kỳ</option>
+                            <option>Hàng năm</option>
+                            <option>Bán niên</option>
+                            <option>Theo quý</option>
+                        </select>
+                    </div>
+
+                    <!-- Quy ước năm -->
+                    <div class="form-group">
+                        <label>Quy ước năm *</label>
+                        <select id="quy-uoc">
+                            <!-- TODO: Actual/Actual – Actual/365 -->
+                            <option>Actual/365</option>
+                            <option>Actual/Actual</option>
+                        </select>
+                    </div>
+
+                    <!-- Ngày phát hành -->
+                    <div class="form-group">
+                        <label>Ngày phát hành *</label>
+                        <input id="ngay-phat-hanh" type="date" />
+                    </div>
+
+                    <!-- Ngày đáo hạn -->
+                    <div class="form-group">
+                        <label>Ngày đáo hạn *</label>
+                        <input id= "ngay-dao-han" type="date" />
+                    </div>
+
+                    <!-- Mệnh giá -->
+                    <div class="form-group">
+                        <label>Mệnh giá *</label>
+                        <input id="menh-gia" type="number" placeholder="100000" />
+                    </div>
+
+                    <!-- Tier -->
+                    <div class="form-group">
+                        <label>Tier *</label>
+                        <select id="tier">
+                            <!-- TODO: Thay A/B/C -->
+                            <option value="">Chọn</option>
+                            <option>A</option>
+                            <option>B</option>
+                            <option>C</option>
+                        </select>
+                    </div>
+
+                    <!-- Ngày thực hiện quyền (call/put) -->
+                    <div class="form-group">
+                        <label>Ngày thực hiện quyền</label>
+                        <input id="ngay-quyen" type="date" />
+                    </div>
+
+                    <!-- 10 notes -->
+                    <div class="form-group">
+                        <label>Ghi chú thêm</label>
+                        <textarea id="ghi-chu" placeholder="Nhập ghi chú"></textarea>
+                    </div>
+
+                </div>
+
+            </div> <!-- END TAB 1 -->
+
+
+            <!-- TAB 2: NHẬP KHO -->
+            <div id="import-tab" class="tab-pane">
+
+                <div class="grid-3">
+
+                    <!-- Ngày thực hiện nhập -->
+                    <div class="form-group">
+                        <label>Ngày thực hiện *</label>
+                        <input id="ngay-th" type="datetime-local" />
+                    </div>
+
+                    <!-- Ngày mua CD thực tế -->
+                    <div class="form-group">
+                        <label>Ngày mua CD thực tế *</label>
+                        <input id="ngay-tt" type="date" />
+                    </div>
+
+                    <!-- Số lượng CD -->
+                    <div class="form-group">
+                        <label>Số lượng CD *</label>
+                        <input id="so-luong" type="number" placeholder="100" />
+                    </div>
+
+                    <!-- Dirty Price -->
+                    <div class="form-group">
+                        <label>Giá giao dịch (Dirty Price) *</label>
+                        <input id="dirty-price" type="number" placeholder="100.000" />
+                    </div>
+
+                </div>
+
+            </div> <!-- END TAB 2 -->
+
+       </div>
+
+        <div class="modal-footer">
+            <button class="cancel-btn">Huỷ</button>
+            <button id="save-btn" class="save-btn">Lưu</button>
+        </div>
+    </div>
+
+</div>
+
+ 

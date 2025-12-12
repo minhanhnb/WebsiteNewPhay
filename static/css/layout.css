@@ -1,0 +1,12 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.nav-link {
+    border-radius: 8px;
+    padding: 10px 15px;
+}
+
+.nav-link.active {
+    font-weight: bold;
+}

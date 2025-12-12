@@ -1,0 +1,50 @@
+.detail-container {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 10px;
+}
+
+.card {
+    padding: 20px;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    margin-bottom: 25px;
+}
+
+.card h3 {
+    margin-bottom: 12px;
+    color: #333;
+}
+
+.card .row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px 20px;
+}
+
+.card span {
+    color: #444;
+}
+.simulation-card .simulation-controls {
+    display: flex; gap: 20px; align-items: flex-end; margin-bottom: 15px;
+}
+.sim-group { display: flex; flex-direction: column; flex: 1; }
+.btn-primary {
+    background: #6c5ce7; color: white; border: none; padding: 10px 20px; 
+    border-radius: 6px; cursor: pointer; font-weight: bold;
+}
+.btn-primary:hover { background: #5b4cc4; }
+
+.table-comparison {
+    width: 100%; border-collapse: collapse;
+}
+.table-comparison th, .table-comparison td {
+    padding: 12px; border: 1px solid #dee2e6; text-align: center;
+}
+.table-comparison th { background: #f8f9fa; font-weight: 600; }
+.diff-positive { color: #27ae60; font-weight: bold; } /* Màu xanh lá */
+.diff-negative { color: #c0392b; font-weight: bold; } /* Màu đỏ */
+
+/* Thêm vào file cd_detail.css */
+.color-market-value { border-color: #f1c40f; } /* Màu vàng/cam */

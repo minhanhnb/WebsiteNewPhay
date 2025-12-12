@@ -1,0 +1,415 @@
+{% extends "layout.html" %}
+{% block content %}
+<style>
+    :root {
+        --momo-pink: #d82b7d;
+        --momo-light: #fdf2f7;
+    }
+    .dashboard-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        padding: 20px;
+        height: 100%;
+    }
+    .card-header-custom {
+        color: var(--momo-pink);
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+    .balance {
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: var(--momo-pink);
+    }
+    .action-btn {
+        background: var(--momo-pink);
+        border: none;
+        color: white;
+        font-weight: bold;
+    }
+    .action-btn:hover {
+        background: #b02165;
+    }
+    .section-title {
+        font-weight: bold;
+        color: var(--momo-pink);
+        margin-bottom: 10px;
+    }
+</style>
+
+<div class="container mt-4">
+    <h1 class="mb-4" style="color: var(--momo-pink); font-weight: bold;">
+        KHÁCH HÀNG
+    </h1>
+
+    <div class="row g-4">
+        <!-- Ví MoMo -->
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="card-header-custom mb-3">Ví MoMo</div>
+                <div class="balance" id="momoBalance">0 ₫</div>
+                <form id="cashForm" class="row g-2 mt-2">
+                            <div class="col-6">
+                                <input type="number" step="0.01" name="cash" class="form-control" placeholder="Nhập số tiền" required>
+                            </div>
+                            <div class="col-6 d-flex gap-2">
+                                <button type="submit" class="btn action-btn w-50" name="action" value="nap">Nạp</button>
+                                <button type="submit" class="btn btn-outline-secondary w-50" name="action" value="rut">Rút</button>
+                            </div>
+                </form>
+
+                <div id="cashResult" class="mt-2 text-success"></div>
+            </div>
+        </div>
+
+        <!-- Túi Thần Tài -->
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <div class="card-header-custom mb-3">Túi Thần Tài</div>
+                <div class="balance" id="tuiBalance">0 ₫</div>
+                <form id="cashTTTForm" class="row g-2 mt-2">
+                    <div class="col-6">
+                        <input type="number" step="0.01" name="cash" class="form-control" placeholder="Nhập số tiền" required>
+                    </div>
+                     <div class="col-6 d-flex gap-2">
+                                <button type="submit" class="btn action-btn w-50" name="action" value="nap">Nạp</button>
+                                <button type="submit" class="btn btn-outline-secondary w-50" name="action" value="rut">Rút</button>
+                        </div>
+                </form>
+                <div id="cashTTTResult" class="mt-2 text-success"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs for Lịch sử -->
+    <div class="mt-5">
+        <ul class="nav nav-tabs" id="lichSuTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-bien-dong" data-bs-toggle="tab" data-bs-target="#tabPaneBienDong" type="button" role="tab" aria-controls="tabPaneBienDong" aria-selected="true">📜 Lịch sử biến động</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-giao-dich" data-bs-toggle="tab" data-bs-target="#tabPaneGiaoDich" type="button" role="tab" aria-controls="tabPaneGiaoDich" aria-selected="false">💸 Lịch sử giao dịch</button>
+            </li>
+        </ul>
+        <div class="tab-content dashboard-card" id="lichSuTabContent">
+            <div class="tab-pane fade show active" id="tabPaneBienDong" role="tabpanel" aria-labelledby="tab-bien-dong">
+                <div class="table-responsive mt-3">
+                    <table class="table table-hover" id="LichSuTuiTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ngày</th>
+                                <th>Tổng Tài Sản</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="tabPaneGiaoDich" role="tabpanel" aria-labelledby="tab-giao-dich">
+                <div class="table-responsive mt-3">
+                    <table class="table table-hover" id="LichSuGiaoDichTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ngày</th>
+                                <th>Loại giao dịch</th>
+                                <th>Số tiền</th>
+                                <th>Nội dung</th>
+                                <th>Chi tiết</th>
+
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Thông tin chi tiết Túi Thần Tài -->
+    <div class="mt-5">
+        <div class="section-title">📊 Chi tiết Túi Thần Tài</div>
+        <div class="dashboard-card">
+            <div class="table-responsive">
+                <table class="table table-hover" id="TTTTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>CD Hiện Có</th>
+                            <th>Tiền Mặt</th>
+                            <th>Net Off</th>
+                            <th>Sync Bank</th>
+                            <th>% Lãi Suất</th>
+                            <th>Tiền Lời</th>
+                            <th>Thuế</th>
+                            <th>Ngày Cập nhật</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+async function fetchData(url, tableId, fields) {
+    const res = await fetch(url);
+    const data = await res.json();
+
+    // Nếu có phần tử momoBalance, cập nhật số dư cho card
+    if (data.length > 0 && document.getElementById("momoBalance")) {
+        document.getElementById("momoBalance").innerText =
+            (data[0].cash || 0).toLocaleString() + " ₫";
+    }
+
+    // Nếu vẫn muốn hiển thị bảng (nếu tableId tồn tại)
+    if (tableId && document.querySelector(`#${tableId} tbody`)) {
+        const tbody = document.querySelector(`#${tableId} tbody`);
+        tbody.innerHTML = "";
+        data.forEach(item => {
+            let row = "<tr>";
+            fields.forEach(f => {
+                if (f === "syncBankBtn") {
+                    row += `<td>
+                        <button class="btn btn-primary btn-sm" onclick="syncBank('${item.name}')">
+                            Sync Bank
+                        </button>
+                    </td>`;
+                } else {
+                    row += `<td>${item[f] || ""}</td>`;
+                }
+            });
+            row += "</tr>";
+            tbody.innerHTML += row;
+        });
+    }
+}
+function getToday_YYMMDD() {
+    const now = new Date();
+    const yy = now.getFullYear().toString().slice(-2); // lấy 2 số cuối
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yy}-${mm}-${dd}`;
+}
+
+
+function escapeHtml(text) {
+    if (text === undefined || text === null) return "";
+    return text.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+async function fetchTTTData(url, tableId) {
+    const res = await fetch(url);
+    const data = await res.json();
+
+
+    // Hiển thị dữ liệu trong bảng chi tiết nếu tableId tồn tại
+    if (tableId && document.querySelector(`#${tableId} tbody`)) {
+        const tbody = document.querySelector(`#${tableId} tbody`);
+        tbody.innerHTML = "";
+
+        data.forEach(user => {
+            let cdDisplay = "";
+            if (user.CDHienCo && user.CDHienCo.length > 0) {
+                cdDisplay = user.CDHienCo
+                    .map(cd => `${escapeHtml(cd.maCD)} - SL:${escapeHtml(cd.soLuong)} - ${escapeHtml(cd.giaMua)} - ${escapeHtml(cd.ngayMua)}`)
+                    .join("<br>");
+            }
+
+            let row = "<tr>";
+            row += `<td>${cdDisplay}</td>`;
+            row += `<td>${user.tienMatHienCo?.toLocaleString() || ""}</td>`;
+            row += `<td>${escapeHtml(user.netOff)}</td>`;
+            row += `<td>
+                        <button class="btn btn-primary btn-sm" onclick="syncBank('${escapeHtml(user.name)}')">
+                            Sync Bank
+                        </button>
+                    </td>`;
+            row += `<td>${escapeHtml(user.laiSuatThucNhan)}</td>`;
+            row += `<td>${escapeHtml(user.laiThucNhanHomNay)}</td>`;
+            row += `<td>${escapeHtml(user.thueTNCN)}</td>`;
+            row += `<td>${escapeHtml(user.ngayCapNhat)}</td>`;
+            row += "</tr>";
+            tbody.innerHTML += row;
+        });
+    }
+}
+async function fetchLichSuTui() {
+    const res = await fetch("/TTT/get-lich-su?name=User A");
+    const data = await res.json();
+    const tbody = document.querySelector("#LichSuTuiTable tbody");
+    tbody.innerHTML = "";
+
+   
+
+    const today = new Date().toISOString().slice(2, 10); // "yy-mm-dd"
+const todayData = data.find(item => item.ngay === today);
+
+if (todayData && document.getElementById("tuiBalance")) {
+    document.getElementById("tuiBalance").innerText =
+        (todayData.tongTaiSan || 0).toLocaleString() + " ₫";
+}
+
+
+    data.forEach(item => {
+        let row = "<tr>";
+        row += `<td>${item.ngay || ""}</td>`;
+        row += `<td>${item.tongTaiSan?.toLocaleString() || ""}</td>`;
+        row += "</tr>";
+        tbody.innerHTML += row;
+    });
+}
+
+
+async function fetchLichSuGiaoDich() {
+    const res = await fetch("/lich-su-giao-dich");
+    const data = await res.json();
+    const tbody = document.querySelector("#LichSuGiaoDichTable tbody");
+    tbody.innerHTML = "";
+
+    data.forEach(item => {
+        let chiTiet = "";
+
+        // Kiểm tra nếu có thongBaoLong là object
+        if (item.thongBaoLong && typeof item.thongBaoLong === "object") {
+            const tb = item.thongBaoLong;
+
+            chiTiet += "<ul style='margin:0;padding-left:16px'>";
+
+            // Hiển thị cash còn lại nếu có
+            if (tb.cash_con_lai !== undefined) {
+                chiTiet += `<li>Tiền mặt còn lại: ${tb.cash_con_lai.toLocaleString()}</li>`;
+            }
+
+            // Hiển thị các CD đã mua nếu có
+            if (Array.isArray(tb.purchased)) {
+                tb.purchased.forEach(p => {
+                    chiTiet += `<li>Mua CD ${p.maCD}: ${p.soLuong} x ${p.gia.toLocaleString()} đ</li>`;
+                });
+            }
+
+            chiTiet += "</ul>";
+        }
+
+        let row = "<tr>";
+        row += `<td>${item.ngay || ""}</td>`;
+        row += `<td>${item.loaiGiaoDich || ""}</td>`;
+        row += `<td>${item.soTien?.toLocaleString() || ""}</td>`;
+        row += `<td>${item.ghiChu || ""}</td>`;
+        row += `<td>${chiTiet}</td>`;
+        row += "</tr>";
+        tbody.innerHTML += row;
+    });
+}
+
+
+async function syncBank() {
+    try {
+        // Phase 1: Sync cash Momo
+        const res1 = await fetch("/bank/sync-netoff", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({})
+        });
+
+        if (!res1.ok) throw new Error("Phase 1 failed");
+
+        // Lấy cash từ response phase 1
+        const phase1Cash = await res1.json(); // backend trả về cash dạng số
+      
+        // Reload bảng sau khi hoàn thành phase 1
+        await fetchTTTData("/TTT", "TTTTable");
+        // Chờ 2 giây trước khi sang phase 2
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Phase 2: Update tiền mặt user với cash từ phase 1
+        const res2 = await fetch("/bank/update-user-cash", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cash: phase1Cash })
+        });
+
+
+        if (!res2.ok) throw new Error("Phase 2 failed");
+
+       
+
+        // Reload bảng sau khi hoàn thành phase 2
+        await fetchTTTData("/TTT", "TTTTable");
+        await fetchLichSuTui();
+
+    } catch (err) {
+        alert("Lỗi khi sync bank: " + err.message);
+    }
+}
+
+async function loadDashboard() {
+    await fetchData("/users", null, ["name", "cash"]); // Cập nhật MoMo card
+    await fetchTTTData("/TTT", "TTTTable");            // Cập nhật Túi card + bảng chi tiết
+    await fetchLichSuTui();
+}
+
+// Ví MoMo
+document.getElementById("cashForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const res = await fetch("/users/add-cash", { method: "POST", body: formData });
+    const text = await res.text();
+    document.getElementById("cashResult").innerText = text;
+
+    // Cập nhật lại số dư MoMo
+    await fetchData("/users", null, ["name", "cash"]);
+});
+
+// Túi Thần Tài
+document.getElementById("cashTTTForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+
+    // Lấy thông tin từ button được bấm
+    const actionType = e.submitter.value; // "nap" hoặc "rut"
+    const endpoint = actionType === "nap" ? "/TTT/add-cash" : "/TTT/withdraw-cash";
+
+    const res = await fetch(endpoint, {
+        method: "POST",
+        body: formData
+    });
+    const text = await res.text();
+
+    document.getElementById("cashTTTResult").innerText = text;
+
+    // Cập nhật dữ liệu sau khi thực hiện
+    await fetchTTTData("/TTT", "TTTTable");
+    await fetchData("/users", null, ["name", "cash"]); // Cập nhật MoMo card
+    await fetchLichSuTui();
+    await fetchLichSuGiaoDich();
+
+});
+
+
+
+
+
+// Tab switching: fetch data when tab is shown
+document.addEventListener('DOMContentLoaded', function() {
+    var tabElList = [].slice.call(document.querySelectorAll('#lichSuTabs button[data-bs-toggle="tab"]'));
+    tabElList.forEach(function(tabEl) {
+        tabEl.addEventListener('shown.bs.tab', function (event) {
+            if (event.target.id === 'tab-bien-dong') {
+                fetchLichSuTui();
+            } else if (event.target.id === 'tab-giao-dich') {
+                fetchLichSuGiaoDich();
+            }
+        });
+    });
+});
+
+loadDashboard();
+</script>
+{% endblock %}
