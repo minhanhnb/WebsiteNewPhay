@@ -48,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
             // Gọi API với query parameter view_date
             const res = await fetch(`/system/api/overview?user_id=${TEST_USER_ID}&view_date=${vDate}`);
             const result = await res.json();
+
             
             if (res.ok && result.success) {
                 // ... render logic giữ nguyên ...
@@ -55,7 +56,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 renderUserWallet(user, result.data.total_balance_estimate);
                 renderSystemFund(finsight, user);
                 renderBank(bank);
-                renderQueue(result.data.queue); // Fix biến queue thành result.data.queue
+                renderQueue(result.data.queue); 
+                renderDailyProfit(result.data.performance);
             }
         } catch (err) {
             console.error(err);
@@ -228,6 +230,51 @@ document.addEventListener("DOMContentLoaded", () => {
 
         container.innerHTML = html;
     }
+    function renderDailyProfit(perfData) {
+        // 1. Lấy Element
+        const pnlValueEl = document.getElementById('pnl-value');
+        const pnlTimeEl = document.getElementById('pnl-time');
+        const pnlBarEl = document.getElementById('pnl-bar');
+
+        // Guard clause: Nếu không có HTML thì dừng
+        if (!pnlValueEl) return;
+
+        // 2. Xử lý dữ liệu an toàn
+        const profit = (perfData && perfData.profit_today) ? perfData.profit_today : 0;
+        const lastUpdated = (perfData && perfData.last_updated) ? perfData.last_updated : '--:--';
+
+        // 3. Logic hiển thị (Màu sắc & Dấu)
+        const isPositive = profit >= 0;
+        const isZero = profit === 0;
+
+        // Xác định class màu
+        let colorClass = 'text-success'; 
+        let barColor = '#10b981'; // Xanh
+        let sign = '+';
+
+        if (profit < 0) {
+            colorClass = 'text-danger';
+            barColor = '#ef4444'; // Đỏ
+            sign = ''; // Số âm tự có dấu trừ (formatMoney sẽ tự thêm)
+        } else if (isZero) {
+            colorClass = 'text-muted'; // Màu xám
+            barColor = '#e9ecef';
+            sign = '';
+        }
+
+        // 4. Update UI
+        // Reset class cũ và gán class mới
+        pnlValueEl.className = `display-6 fw-bold mb-0 ${colorClass}`;
+        
+        // [SỬA LỖI TẠI ĐÂY] Đổi formatCurrencyVND thành formatMoney
+        // formatMoney là hàm bạn đã khai báo ở đầu file js
+        pnlValueEl.innerText = `${sign}${formatMoney(profit)}`; 
+        
+        // Update giờ và thanh màu dưới đáy
+        if (pnlTimeEl) pnlTimeEl.innerText = lastUpdated;
+        if (pnlBarEl) pnlBarEl.style.backgroundColor = barColor;
+    }
+
 
     // --- BUTTON ACTIONS ---
     async function callApi(url, body) {
@@ -268,6 +315,31 @@ document.addEventListener("DOMContentLoaded", () => {
         // Sau khi reset, reload lại trang để về trạng thái trắng
         window.location.reload();
     });
+    function scrollToSection(id) {
+        const el = document.getElementById(id);
+        if(el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+            
+            // Highlight Tab active (chỉ là visual)
+            document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+    }
+    
+    // Override hàm switchTab cũ trong system_dashboard.js nếu cần thiết
+    // (Vì layout ngang thì không cần ẩn hiện display:none nữa)
+    window.switchTab = function(tabName, el) {
+       // Logic cũ là ẩn hiện, logic mới là scroll tới
+       // Bạn có thể xóa code cũ hoặc để code này đè lên.
+       if(tabName === 'all') return; // Không làm gì
+       
+       let targetId = '';
+       if(tabName === 'user') targetId = 'section-user';
+       if(tabName === 'system') targetId = 'section-system';
+       if(tabName === 'bank') targetId = 'section-bank';
+       
+       scrollToSection(targetId);
+    };
 
     loadSystemData();
 });

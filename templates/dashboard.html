@@ -64,24 +64,39 @@
     <div class="nav-tabs-minimal">
         <div class="tab-link active" onclick="switchTab('all', this)">Tất cả</div>
         <div class="tab-link" onclick="switchTab('user', this)">Ví Khách Hàng</div>
-        <div class="tab-link" onclick="switchTab('system', this)">Quỹ Hệ Thống</div>
+        <div class="tab-link" onclick="switchTab('system', this)">Core TVAM</div>
         <div class="tab-link" onclick="switchTab('bank', this)">Ngân Hàng LK</div>
     </div>
 
+
     <div id="content-area">
         
-        <div id="section-user" class="section-wrapper mb-4">
-            <h6 class="text-uppercase text-muted fw-bold mb-3 small">1. Ví Khách Hàng (User)</h6>
+        <div id="section-user" class="section-wrapper">
+            <h6 class="text-uppercase text-primary fw-bold"><i class="fas fa-wallet me-2"></i>1. Ví Khách Hàng (User)</h6>
             <div class="dashboard-grid" id="user-data-container"></div>
+            <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; overflow: hidden;">
+            <div class="card-body p-3 text-center">
+                <h6 class="text-secondary text-uppercase fw-bold" style="font-size: 0.75rem; letter-spacing: 1px;">
+                    Tiền lời hôm nay
+                </h6>
+
+                <div class="d-flex justify-content-center align-items-center mt-2">
+                    <h2 id="pnl-value" class="display-6 fw-bold mb-0">--</h2>
+                </div>
+
+            </div>
+            
+            <div id="pnl-bar" style="height: 4px; width: 100%; background-color: #e9ecef;"></div>
+        </div>
         </div>
 
-        <div id="section-system" class="section-wrapper mb-4">
-            <h6 class="text-uppercase text-muted fw-bold mb-3 small">2. Core TVAM</h6>
+        <div id="section-system" class="section-wrapper">
+            <h6 class="text-uppercase text-danger fw-bold"><i class="fas fa-university me-2"></i>2. Core TVAM</h6>
             <div class="dashboard-grid" id="finsight-data-container"></div>
         </div>
 
-        <div id="section-bank" class="section-wrapper mb-4">
-            <h6 class="text-uppercase text-muted fw-bold mb-3 small">3. Ngân Hàng Lưu Ký</h6>
+        <div id="section-bank" class="section-wrapper">
+            <h6 class="text-uppercase text-success fw-bold"><i class="fas fa-landmark me-2"></i>3. Ngân Hàng Lưu Ký</h6>
             <div class="dashboard-grid" id="bank-data-container"></div>
         </div>
 
@@ -96,4 +111,5 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/system_dashboard.js') }}"></script>
+
 {% endblock %}
