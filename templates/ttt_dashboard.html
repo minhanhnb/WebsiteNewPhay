@@ -7,17 +7,16 @@
 {% block content %}
 <div class="ttt-container">
     <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <h2>💰Túi Thần Tài</h2>
+    <h2>Túi Thần Tài</h2>
     <div class="view-controls">
-        <label for="viewDate" style="font-weight: 600;">Xem tài sản tại ngày:</label>
+        <label for="viewDate" style="font-weight: 600;">Ngày xem</label>
         <input type="date" id="viewDate" class="form-control" style="width: 150px;">
     </div>
     </div>
     <div class="dashboard-grid">
         <div class="card info-card primary-card">
-            <div class="card-icon">🏦</div>
             <div class="card-content">
-                <h3>Tổng Tiền TTT</h3>
+                <h3>Tiền trong Túi</h3>
                 <p class="big-number" id="totalBalance">Loading...</p>
                 <small>Lãi suất hiện tại: <span id="currentRate">4</span>%/năm</small>
             </div>
@@ -25,11 +24,10 @@
     </div>
 
     <div class="interaction-area">
-        
         <div class="card form-card">
             <h3>Thực hiện Giao dịch</h3>
             <form id="transForm">
-                <div class="form-group">
+                <div class="form-group full-width">
                     <label>Hành động</label>
                     <div class="toggle-action">
                         <input type="radio" name="action" id="actNap" value="NAP" checked>
@@ -49,11 +47,8 @@
                     <label>Số tiền (VND)</label>
                     <input type="text" id="transAmount" class="form-control" placeholder="Nhập số tiền..." required>
                 </div>
-
-                <div class="form-group">
-                    <label>Ghi chú</label>
-                    <input type="text" id="transNote" class="form-control" placeholder="Ví dụ: Nạp tiền tiết kiệm...">
-                </div>
+                
+                
 
                 <button type="submit" class="btn-submit">Xác nhận Giao dịch</button>
             </form>
@@ -68,7 +63,7 @@
                             <th>Ngày</th>
                             <th>Loại</th>
                             <th>Số tiền</th>
-                            <th>Ghi chú</th>
+                            
                             <th style="width: 50px;"></th> </tr>
                     </thead>
                     <tbody id="historyBody">

@@ -16,13 +16,18 @@ document.addEventListener("DOMContentLoaded", () => {
         bank: document.getElementById('section-bank')
     };
 
-    // Date & Clock
+    // Date 
+    const defaultDateISO = "2025-01-01"; 
+
     const settleDateInput = document.getElementById("settleDate");
     const viewDateInput = document.getElementById("viewDate");
     const todayStr = new Date().toISOString().split('T')[0];
-    if(settleDateInput) settleDateInput.value = todayStr;
-    if(viewDateInput) viewDateInput.value = todayStr;
-
+    if (settleDateInput) {
+            settleDateInput.value = defaultDateISO;
+            }
+    if (viewDateInput) {
+        viewDateInput.value = defaultDateISO;
+            }
     // --- TAB SWITCHER ---
     switchTab = function(tabName, el) {
         // Active Style
@@ -178,58 +183,104 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
     }
    //Render hàng đợi settle
-    function renderQueue(queue) {
-        const container = document.getElementById("queueContainer");
-        const countBadge = document.getElementById("queueCount");
+   function renderQueue(queue) {
+    const container = document.getElementById("queueContainer");
+    const countBadge = document.getElementById("queueCount");
+
+    // --- 0. SẮP XẾP: Cũ nhất lên đầu (Tăng dần) ---
+    if (queue && queue.length > 0) {
+        queue.sort((b,a ) => new Date(a.created_at) - new Date(b.created_at));
+    }
+
+    // --- 1. Helper Format: Ngày + Giờ:Phút:Giây ---
+    const formatDateTime = (dateStr) => {
+        if (!dateStr) return "";
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return "";
+
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
         
-        if (!queue || queue.length === 0) {
-            container.innerHTML = `
-                <div class="h-100 d-flex flex-column justify-content-center align-items-center text-muted opacity-50">
-                    <i class="fas fa-check-double fa-2x mb-2"></i>
-                    <small>Tất cả đã được đồng bộ</small>
-                </div>`;
+        const HH = String(d.getHours()).padStart(2, '0');
+        const MM = String(d.getMinutes()).padStart(2, '0');
+        const SS = String(d.getSeconds()).padStart(2, '0'); // Thêm giây cho uy tín
+
+        return `${dd}/${mm}/${yyyy} ${HH}:${MM}:${SS}`;
+    };
+
+    // Kiểm tra Queue rỗng (Giữ nguyên logic cũ)
+    if (!queue || queue.length === 0) {
+        container.innerHTML = `
+            <div class="h-100 d-flex flex-column justify-content-center align-items-center text-muted opacity-50">
+                <i class="fas fa-check-double fa-2x mb-2"></i>
+                <small>Tất cả đã được đồng bộ</small>
+            </div>`;
+        if (countBadge) {
             countBadge.innerText = "0 lệnh";
             countBadge.className = "badge bg-light text-muted border";
-            // Disable nút Sync nếu không có gì để sync
-            document.getElementById("btnSyncBank").disabled = true;
-            return;
         }
-
-        // Enable nút Sync
         const btnSync = document.getElementById("btnSyncBank");
+        if (btnSync) btnSync.disabled = true;
+        return;
+    }
+
+    // Update nút Sync & Badge (Giữ nguyên)
+    const btnSync = document.getElementById("btnSyncBank");
+    if (btnSync) {
         btnSync.disabled = false;
         btnSync.innerHTML = `<i class="fas fa-sync me-2"></i> Gửi lệnh Lưu ký (${queue.length})`;
-        
+    }
+    if (countBadge) {
         countBadge.innerText = `${queue.length} chờ xử lý`;
         countBadge.className = "badge bg-danger";
-
-        // Map loại giao dịch sang tiếng Việt & Style
-        const typeMap = {
-            'CASH_IN': { text: 'Nạp Tiền', class: 'q-cash-in', icon: '+' },
-            'CASH_OUT': { text: 'Rút Tiền', class: 'q-cash-out', icon: '-' },
-            'ALLOCATION_CASH_PAID': { text: 'Thanh toán mua CD', class: 'q-alloc', icon: '-' },
-            'ALLOCATION_ASSET_DELIVERED': { text: 'Nhận CD (Kho)', class: 'q-alloc', icon: '📦' },
-            'LIQUIDATE_CD': { text: 'Bán CD (Kho)', class: 'q-liq', icon: '📦' }
-        };
-
-        const html = queue.map(item => {
-            const map = typeMap[item.type] || { text: item.type, class: 'bg-light', icon: '•' };
-            const amountStr = item.amount > 0 ? formatMoney(item.amount) : '';
-            
-            return `
-                <div class="queue-item">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="q-badge ${map.class}">${map.text}</span>
-                    </div>
-                    <div class="fw-bold text-dark small">
-                        ${map.icon} ${amountStr}
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        container.innerHTML = html;
     }
+
+    const typeMap = {
+        'CASH_IN': { text: 'Nạp Tiền', class: 'q-cash-in', icon: '+' },
+        'CASH_OUT': { text: 'Rút Tiền', class: 'q-cash-out', icon: '-' },
+        'ALLOCATION_CASH_PAID': { text: 'Thanh toán mua CD', class: 'q-alloc', icon: '-' },
+        'ALLOCATION_ASSET_DELIVERED': { text: 'Nhận CD (Kho)', class: 'q-alloc', icon: '📦' },
+        'LIQUIDATE_CD': { text: 'Bán CD (Kho)', class: 'q-liq', icon: '📦' }
+    };
+
+    // --- 2. HEADER: Tăng width cột đầu lên 145px ---
+    const headerHtml = `
+        <div style="display: flex; flex-direction: row; align-items: center; width: 100%; padding: 8px 0.5rem; border-bottom: 1px solid #dee2e6; background-color: #ffffffff; color: #212529; font-weight: 700; font-size: 0.85rem; text-transform: uppercase;">
+            <div style="width: 145px; flex-shrink: 0;">THỜI GIAN</div> <div style="flex-grow: 1; text-align: center;">LOẠI LỆNH</div>
+            <div style="width: 120px; flex-shrink: 0; text-align: right;">SỐ TIỀN</div>
+        </div>
+    `;
+
+    // --- 3. BODY: Hiển thị full ngày giờ ---
+    const bodyHtml = queue.map(item => {
+        const map = typeMap[item.type] || { text: item.type, class: 'bg-light', icon: '•' };
+        const amountStr = item.amount > 0 ? formatMoney(item.amount) : '';
+        
+        // Gọi hàm format mới
+        const dateTimeDisplay = formatDateTime(item.created_at);
+
+        return `
+            <div class="queue-item" style="display: flex; flex-direction: row; align-items: center; width: 100%; padding: 8px 0.5rem; border-bottom: 1px solid #dee2e6;">
+                
+                <div style="width: 145px; flex-shrink: 0; color: #6c757d; font-size: 0.85rem; font-family: monospace;">
+                    ${dateTimeDisplay}
+                </div>
+
+                <div style="flex-grow: 1; text-align: center;">
+                    <span class="q-badge ${map.class}">${map.text}</span>
+                </div>
+
+                <div style="width: 120px; flex-shrink: 0; text-align: right; font-weight: 700; color: #212529; font-size: 0.9rem;">
+                    ${map.icon} ${amountStr}
+                </div>
+
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = headerHtml + bodyHtml;
+}
     function renderDailyProfit(perfData) {
         // 1. Lấy Element
         const pnlValueEl = document.getElementById('pnl-value');

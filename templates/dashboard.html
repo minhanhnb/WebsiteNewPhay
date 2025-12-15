@@ -29,9 +29,7 @@
             <input type="date" id="settleDate" class="form-control-compact w-100 py-2">
         </div>
         <div class="mb-3 border-bottom pb-3">
-        <label class="control-label d-block text-primary fw-bold">Ngày xem hệ thống</label>
-        <input type="date" id="viewDate" class="form-control-compact w-100 py-2 fw-bold" style="background-color: #f8f9fa;">
-        <small class="text-muted" style="font-size: 0.75rem;">*Thay đổi để xem giá trị tài sản theo ngày</small>
+        
         </div>
     
                 <button class="btn-minimal btn-outline-primary-minimal justify-content-center py-2 shadow-sm" id="btnAllocate">
@@ -48,7 +46,7 @@
     <div class="panel-right">
         <div class="queue-header">
             <div class="fw-bold text-muted small text-uppercase">
-                <i class="fas fa-list-alt me-2"></i>Hàng chờ xử lý (Settlement Queue)
+                Lệnh chờ gửi NHLK
             </div>
             <span class="badge bg-secondary" id="queueCount">0 lệnh</span>
         </div>
@@ -61,18 +59,14 @@
     </div>
 </div>
     </div>
-    <div class="nav-tabs-minimal">
-        <div class="tab-link active" onclick="switchTab('all', this)">Tất cả</div>
-        <div class="tab-link" onclick="switchTab('user', this)">Ví Khách Hàng</div>
-        <div class="tab-link" onclick="switchTab('system', this)">Core TVAM</div>
-        <div class="tab-link" onclick="switchTab('bank', this)">Ngân Hàng LK</div>
-    </div>
-
+    <label class="control-label d-block text-primary fw-bold">Ngày xem hệ thống</label>
+        <input type="date" id="viewDate" class="form-control-compact w-100 py-2 fw-bold" style="background-color: #f8f9fa;">
+        <small class="text-muted" style="font-size: 0.75rem;">*Thay đổi để xem giá trị tài sản theo ngày</small>
 
     <div id="content-area">
         
         <div id="section-user" class="section-wrapper">
-            <h6 class="text-uppercase text-primary fw-bold"><i class="fas fa-wallet me-2"></i>1. Ví Khách Hàng (User)</h6>
+            <h6 class="text-uppercase text-primary fw-bold">1. Túi User</h6>
             <div class="dashboard-grid" id="user-data-container"></div>
             <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; overflow: hidden;">
             <div class="card-body p-3 text-center">
@@ -91,12 +85,12 @@
         </div>
 
         <div id="section-system" class="section-wrapper">
-            <h6 class="text-uppercase text-danger fw-bold"><i class="fas fa-university me-2"></i>2. Core TVAM</h6>
+            <h6 class="text-uppercase text-danger fw-bold">2. Core TVAM</h6>
             <div class="dashboard-grid" id="finsight-data-container"></div>
         </div>
 
         <div id="section-bank" class="section-wrapper">
-            <h6 class="text-uppercase text-success fw-bold"><i class="fas fa-landmark me-2"></i>3. Ngân Hàng Lưu Ký</h6>
+            <h6 class="text-uppercase text-success fw-bold">3. Ngân Hàng Lưu Ký</h6>
             <div class="dashboard-grid" id="bank-data-container"></div>
         </div>
 
