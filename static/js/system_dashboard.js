@@ -48,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
             // Gọi API với query parameter view_date
             const res = await fetch(`/system/api/overview?user_id=${TEST_USER_ID}&view_date=${vDate}`);
             const result = await res.json();
+
             
             if (res.ok && result.success) {
                 // ... render logic giữ nguyên ...
@@ -55,7 +56,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 renderUserWallet(user, result.data.total_balance_estimate);
                 renderSystemFund(finsight, user);
                 renderBank(bank);
-                renderQueue(result.data.queue); // Fix biến queue thành result.data.queue
+                renderQueue(result.data.queue); 
+                renderPerformance(result.data.performance); 
             }
         } catch (err) {
             console.error(err);
@@ -228,6 +230,52 @@ document.addEventListener("DOMContentLoaded", () => {
 
         container.innerHTML = html;
     }
+    function renderPerformance(perf) {
+        // Tìm container User để chèn vào (Hoặc tạo container riêng tùy bạn)
+        // Ở đây tôi sẽ chèn nó vào đầu tiên trong User Container để user dễ thấy nhất
+        const container = containers.user; 
+        
+        if (!perf) return;
+
+        const profitToday = perf.profit_today || 0;
+        const profitMonth = perf.profit_month || 0;
+
+        // Xác định màu sắc: Lời (Xanh), Lỗ (Đỏ), Hòa (Xám)
+        const colorClass = profitToday >= 0 ? 'text-success' : 'text-danger';
+        const sign = profitToday > 0 ? '+' : ''; // Thêm dấu cộng cho đẹp
+
+        const html = `
+            <div class="stat-card" style="border-left: 5px solid #2ecc71;">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="stat-label text-uppercase fw-bold text-success">
+                        <i class="fas fa-chart-line me-2"></i>Hiệu quả đầu tư
+                    </div>
+                    <span class="badge bg-light text-muted border" style="font-size: 0.7rem;">
+                        ${perf.last_updated}
+                    </span>
+                </div>
+
+                <div class="mt-2">
+                    <small class="text-muted">Lợi nhuận hôm nay</small>
+                    <div class="stat-value ${colorClass}">
+                        ${sign} ${formatMoney(profitToday)}
+                    </div>
+                </div>
+
+                <div class="mt-3 pt-2 border-top d-flex justify-content-between align-items-center">
+                    <span class="text-dark small fw-bold">Tháng này:</span>
+                    <span class="fw-bold text-dark">
+                        ${profitMonth > 0 ? '+' : ''}${formatMoney(profitMonth)}
+                    </span>
+                </div>
+            </div>
+        `;
+
+        // Chèn vào đầu danh sách thẻ của User
+        // container.innerHTML = html + container.innerHTML; 
+        // Hoặc nếu muốn thay thế/bổ sung tùy layout, ở đây tôi dùng insertAdjacentHTML
+        container.insertAdjacentHTML('afterbegin', html);
+    }
 
     // --- BUTTON ACTIONS ---
     async function callApi(url, body) {
@@ -268,6 +316,31 @@ document.addEventListener("DOMContentLoaded", () => {
         // Sau khi reset, reload lại trang để về trạng thái trắng
         window.location.reload();
     });
+    function scrollToSection(id) {
+        const el = document.getElementById(id);
+        if(el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+            
+            // Highlight Tab active (chỉ là visual)
+            document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+    }
+    
+    // Override hàm switchTab cũ trong system_dashboard.js nếu cần thiết
+    // (Vì layout ngang thì không cần ẩn hiện display:none nữa)
+    window.switchTab = function(tabName, el) {
+       // Logic cũ là ẩn hiện, logic mới là scroll tới
+       // Bạn có thể xóa code cũ hoặc để code này đè lên.
+       if(tabName === 'all') return; // Không làm gì
+       
+       let targetId = '';
+       if(tabName === 'user') targetId = 'section-user';
+       if(tabName === 'system') targetId = 'section-system';
+       if(tabName === 'bank') targetId = 'section-bank';
+       
+       scrollToSection(targetId);
+    };
 
     loadSystemData();
 });

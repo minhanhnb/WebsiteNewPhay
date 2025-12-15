@@ -68,20 +68,21 @@
         <div class="tab-link" onclick="switchTab('bank', this)">Ngân Hàng LK</div>
     </div>
 
+
     <div id="content-area">
         
-        <div id="section-user" class="section-wrapper mb-4">
-            <h6 class="text-uppercase text-muted fw-bold mb-3 small">1. Ví Khách Hàng (User)</h6>
+        <div id="section-user" class="section-wrapper">
+            <h6 class="text-uppercase text-primary fw-bold"><i class="fas fa-wallet me-2"></i>1. Ví Khách Hàng (User)</h6>
             <div class="dashboard-grid" id="user-data-container"></div>
         </div>
 
-        <div id="section-system" class="section-wrapper mb-4">
-            <h6 class="text-uppercase text-muted fw-bold mb-3 small">2. Core TVAM</h6>
+        <div id="section-system" class="section-wrapper">
+            <h6 class="text-uppercase text-danger fw-bold"><i class="fas fa-university me-2"></i>2. Core TVAM</h6>
             <div class="dashboard-grid" id="finsight-data-container"></div>
         </div>
 
-        <div id="section-bank" class="section-wrapper mb-4">
-            <h6 class="text-uppercase text-muted fw-bold mb-3 small">3. Ngân Hàng Lưu Ký</h6>
+        <div id="section-bank" class="section-wrapper">
+            <h6 class="text-uppercase text-success fw-bold"><i class="fas fa-landmark me-2"></i>3. Ngân Hàng Lưu Ký</h6>
             <div class="dashboard-grid" id="bank-data-container"></div>
         </div>
 
@@ -96,4 +97,5 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/system_dashboard.js') }}"></script>
+
 {% endblock %}

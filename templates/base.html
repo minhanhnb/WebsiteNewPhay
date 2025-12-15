@@ -3,28 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <title>{{ title if title else "Dashboard" }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
     <style>
         body {
             margin: 0;
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             display: flex;
+            overflow-x: hidden; /* Tránh thanh cuộn ngang của body */
         }
 
-        /* Sidebar */
+        /* --- SIDEBAR STYLE --- */
         .sidebar {
             width: 220px;
-            background-color: #1f2937; /* Màu xám đậm kiểu Dashboard */
+            background-color: #ff4411e1;
             height: 100vh;
             padding-top: 20px;
             color: white;
             position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+            
+            /* Hiệu ứng trượt mượt mà */
+            transition: all 0.3s ease;
+            overflow: hidden; /* Ẩn nội dung khi thu nhỏ */
+            white-space: nowrap; /* Không xuống dòng chữ khi thu nhỏ */
         }
 
         .sidebar h2 {
             text-align: center;
             margin-bottom: 30px;
             font-size: 20px;
+            opacity: 1;
+            transition: opacity 0.2s;
         }
 
         .sidebar a {
@@ -33,43 +45,86 @@
             color: white;
             text-decoration: none;
             font-size: 16px;
+            border-left: 4px solid transparent;
         }
 
         .sidebar a:hover {
             background-color: #374151;
+            border-left-color: #3b82f6; /* Highlight màu xanh */
         }
 
-        /* Main content */
+        /* --- MAIN CONTENT STYLE --- */
         .main-content {
-            margin-left: 220px;
+            margin-left: 220px; /* Khớp với width sidebar */
             padding: 25px;
             width: calc(100% - 220px);
+            transition: all 0.3s ease; /* Trượt theo sidebar */
+            min-height: 100vh;
+            box-sizing: border-box;
         }
+
+        /* --- TRẠNG THÁI COLLAPSED (ĐÓNG SIDEBAR) --- */
+        body.sidebar-closed .sidebar {
+            width: 0px; /* Thu về 0 */
+            padding-top: 20px;
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        body.sidebar-closed .main-content {
+            margin-left: 0; /* Full màn hình */
+            width: 100%;
+        }
+
+        /* Nút Toggle Menu */
+        .menu-toggle-btn {
+            position: absolute;
+            top: 15px;
+            left: 180px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #ffffff;
+            z-index: 1001; /* Nổi lên trên */
+        }
+        
+        /* Chỉnh lại vị trí nút khi sidebar đóng */
+        body.sidebar-closed .menu-toggle-btn {
+            color: #333; 
+            left: 20px;
+        }
+
     </style>
     {% block extra_css %}{% endblock %}
-
 </head>
 
 <body {% block body_attrs %}{% endblock %}>
 
-
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <h2>TTT Dashboard</h2>
-
-        <a href="/">🏠 Home</a>
+    <div class="sidebar" id="sidebar">
+        <h2>System Demo</h2>
+        <a href="/">Test API</a>
         <a href="/ttt">Túi Thần Tài</a>
-        
         <a href="/system">Quản lý hệ thống</a>
-
         <a href="/cd">Kho CD</a>
     </div>
 
-    <!-- Content -->
     <div class="main-content">
+        <button class="menu-toggle-btn" id="sidebarToggle" title="Đóng/Mở Menu">
+            <i class="fas fa-bars"></i>
+        </button>
+
         {% block content %}
         {% endblock %}
     </div>
+
+    <script>
+        // Script xử lý đóng mở sidebar
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.body.classList.toggle('sidebar-closed');
+        });
+    </script>
+
    {% block extra_js %}{% endblock %}
 </body>
 </html>

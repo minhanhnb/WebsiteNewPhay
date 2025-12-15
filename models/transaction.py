@@ -14,7 +14,7 @@ class Transaction:
             "user_id": self.user_id,
             "action_type": self.action_type,
             "amount": self.amount,
-            "date_trans": self.date_trans,
+            "date": self.date_trans,
             "note": self.note,
             "created_at": self.created_at
         }

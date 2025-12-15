@@ -20,10 +20,15 @@ class TransactionService:
         all_transactions = self.trans_repo.get_transactions_by_user(user_id)
         
         # Filter: Chỉ lấy giao dịch <= ngày đang xem
-        history_display = [t for t in all_transactions if t.get("date_trans") <= target_date_str]
+       
         
         # Sort: Mới nhất lên đầu
-        history_display.sort(key=lambda x: x.get('date_trans', ''), reverse=True)
+        # Sửa "date_trans" thành "date"
+        # Thêm logic .get("date", "") để nếu lỡ dữ liệu cũ không có date cũng không bị crash (trả về chuỗi rỗng)
+        history_display = [
+            t for t in all_transactions 
+            if t.get("date", t.get("date_trans", "")) <= target_date_str
+        ]
 
         return {
             "balance": total_balance, # UI hiển thị số này là Tổng Tài Sản

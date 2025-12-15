@@ -55,15 +55,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
         history.forEach(item => {
             const row = document.createElement("tr");
-            const isNap = item.action_type === "NAP";
+            const isNap = item.type === "NAP";
             const cls = isNap ? "type-nap" : "type-rut";
             const label = isNap ? "Nạp tiền" : "Rút tiền";
             const sign = isNap ? "+" : "-";
+            const date = item.date
             
             const transId = item.id || item._id;
 
             row.innerHTML = `
-                <td>${item.date_trans}</td>
+                <td>${date}</td>
                 <td><span class="${cls}">${label}</span></td>
                 <td class="${cls} fw-bold">${sign} ${formatMoney(item.amount)}</td>
                 <td class="text-muted small">${item.note || ""}</td>

@@ -265,3 +265,60 @@ body {
 /* Scrollbar đẹp cho Queue */
 .queue-list::-webkit-scrollbar { width: 6px; }
 .queue-list::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 3px; }
+
+ /* --- CSS CHO SCROLL NGANG (HORIZONTAL LAYOUT) --- */
+    
+    /* Container chính chứa 3 cột */
+    #content-area {
+        display: flex;              /* Xếp các phần tử con nằm ngang */
+        flex-direction: row;
+        overflow-x: auto;           /* Cho phép cuộn ngang */
+        gap: 20px;                  /* Khoảng cách giữa các cột */
+        padding-bottom: 20px;       /* Khoảng hở cho thanh scrollbar */
+        
+        /* Tùy chỉnh thanh cuộn cho đẹp (Chrome/Safari) */
+        scrollbar-width: thin;
+        scrollbar-color: #ccc #f1f1f1;
+    }
+
+    #content-area::-webkit-scrollbar {
+        height: 8px;
+    }
+    #content-area::-webkit-scrollbar-thumb {
+        background-color: #bbb;
+        border-radius: 4px;
+    }
+
+    /* Các khối con (User, Core, Bank) */
+    .section-wrapper {
+        min-width: 450px;           /* [QUAN TRỌNG] Độ rộng tối thiểu để không bị bóp méo */
+        flex: 0 0 auto;             /* Không co giãn, giữ nguyên kích thước */
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        border: 1px solid #eee;
+    }
+
+    /* Tiêu đề mỗi cột */
+    .section-wrapper h6 {
+        font-size: 0.9rem;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+
+    /* Grid bên trong mỗi thẻ vẫn giữ nguyên 2 cột */
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr; 
+        gap: 15px; 
+    }
+    
+    /* Chỉnh nút Reset sang phải cho gọn */
+    .header-actions {
+        display: flex;
+        gap: 10px;
+        margin-left: auto; /* Đẩy về bên phải */
+    }
