@@ -587,53 +587,56 @@ class SystemService:
 
         except Exception as e:
             return {"status": "error", "message": str(e)}
+        
     def sync_batch_to_bank(self):
-        logs = self.finsight_repo.get_pending_logs() #
+        logs = self.finsight_repo.get_pending_logs()
         processed_ids = []
         
-        # [NEW] Tách biệt dòng tiền của 2 đối tượng để đối soát
+        # [1] Cash Flow Accumulators (Cộng dồn tiền)
         user_net_cash_flow = 0.0
         finsight_net_cash_flow = 0.0 
 
-        cd_objects_to_add = []      
-        cd_objects_to_remove = []   
-        
+        # [2] Asset Changes Map: { 'Mã_CD': Số_lượng_thay_đổi }
+        # Ví dụ: {'CD001': 100, 'CD002': -50} (Dương là thêm, Âm là bớt)
+        asset_changes_map = {} 
+
         for doc in logs:
             log = doc.to_dict()
             l_type = log.get('type')
             amt = float(log.get('amount', 0))
             
-            # --- 1. CASH FLOW LOGIC ---
+            # --- A. CASH FLOW LOGIC (Giữ nguyên logic đúng của bạn) ---
             if l_type == 'CASH_IN':
-                # Nạp tiền: Tiền vào User (Từ nguồn ngoài), Finsight không đổi
                 user_net_cash_flow += amt
 
             elif l_type == 'CASH_OUT':
-                # Rút tiền: Tiền ra khỏi User, Finsight không đổi
                 user_net_cash_flow -= amt
 
             elif l_type == 'ALLOCATION_CASH_PAID':
-                # [REQ] Mua CD: User TRẢ tiền (-), Finsight NHẬN tiền (+)
                 user_net_cash_flow -= amt
                 finsight_net_cash_flow += amt 
             
             elif l_type == 'LIQUIDATE_CD':
-                # [AUTO] Bán CD (Rút vốn): User NHẬN tiền (+), Finsight TRẢ tiền (-)
-                # (Logic này đi kèm với việc update User Cash khi thanh khoản)
                 user_net_cash_flow += amt
                 finsight_net_cash_flow -= amt
 
-                # Xử lý Asset của việc bán (Remove khỏi ví User)
+                # --- [NEW] ASSET LOGIC: BÁN (TRỪ) ---
+                # Thay vì append vào list remove, ta trừ thẳng vào Map tổng
                 sold_items = log.get('details', {}).get('sold', [])
                 for item in sold_items:
-                    cd_objects_to_remove.append(item)
+                    ma_cd = item.get('maCD')
+                    qty = int(item.get('soLuong', 0))
+                    # Cộng dồn số âm (Giảm đi)
+                    asset_changes_map[ma_cd] = asset_changes_map.get(ma_cd, 0) - qty
 
-            # --- 2. ASSET TRANSFER LOGIC ---
+            # --- [NEW] ASSET LOGIC: MUA/NHẬN (CỘNG) ---
             elif l_type == 'ALLOCATION_ASSET_DELIVERED':
-                # Nhận CD về ví
                 assets_delivered = log.get('details', {}).get('assets', [])
                 for asset in assets_delivered:
-                    cd_objects_to_add.append(asset) 
+                    ma_cd = asset.get('maCD')
+                    qty = int(asset.get('soLuong', 0))
+                    # Cộng dồn số dương (Thêm vào)
+                    asset_changes_map[ma_cd] = asset_changes_map.get(ma_cd, 0) + qty
             
             processed_ids.append(doc.id)
 
@@ -642,28 +645,28 @@ class SystemService:
         
         # --- THỰC HIỆN GHI VÀO DB (BANK REPO) ---
 
-        # 1. Update User Cash
+        # 1. Update Cash (Batch Update)
         if user_net_cash_flow != 0:
-            self.bank_repo.update_user_cash(user_net_cash_flow) #
+            self.bank_repo.update_user_cash(user_net_cash_flow)
         
-        # 2. [NEW] Update Finsight System Cash (Đối ứng)
-        # Bạn cần đảm bảo BankRepo đã có hàm update_system_cash
         if finsight_net_cash_flow != 0:
             self.bank_repo.update_system_cash(finsight_net_cash_flow)
 
-        # 3. Update Assets Ownership
-        if cd_objects_to_add or cd_objects_to_remove:
-            self.bank_repo.sync_assets_ownership(cd_objects_to_add, cd_objects_to_remove) #
+        # 2. [OPTIMIZED] Update Assets Ownership
+        # Truyền map thay đổi xuống repo để xử lý logic cộng trừ chuẩn xác
+        if asset_changes_map:
+            # Bạn cần thêm hàm sync_assets_net_changes vào BankRepo (xem code bên dưới)
+            self.bank_repo.sync_assets_net_changes(asset_changes_map) 
 
-        # 4. Đánh dấu đã xử lý
-        self.finsight_repo.mark_logs_processed(processed_ids) #
+        # 3. Đánh dấu đã xử lý
+        self.finsight_repo.mark_logs_processed(processed_ids)
         
         return {
             "status": "success", 
             "message": (f"Đã Sync NHLK.\n"
                         f"- User Cash: {user_net_cash_flow:+,.0f}\n"
                         f"- Finsight Cash: {finsight_net_cash_flow:+,.0f}\n"
-                        f"- Assets: +{len(cd_objects_to_add)} / -{len(cd_objects_to_remove)}")
+                        f"- Assets Updated: {len(asset_changes_map)} mã")
         }
     # ... Helper Functions cũ (tính giá, log trans...) giữ nguyên ...
     def _calculate_cd_price_dynamic(self, cd, date):
