@@ -159,7 +159,7 @@ class SystemService:
         self.finsight_repo.update_user_cash(user_id, amount)
         
         # 2. Log System (Chờ Sync)
-        self.finsight_repo.add_settlement_log(user_id, "CASH_IN", amount)
+        self.finsight_repo.add_settlement_log(user_id, "CASH_IN", amount, date_str)
         
         # 3. Log History
         self._log_transaction(user_id, "NAP", amount, date_str, "Nạp vào Finsight Cash")
@@ -253,7 +253,7 @@ class SystemService:
             self.finsight_repo.update_system_cash(total_cost)
             # 3. Log 1: Ghi nhận tiền đã được trả
             self.finsight_repo.add_settlement_log(
-                user_id, "ALLOCATION_CASH_PAID", total_cost
+                user_id, "ALLOCATION_CASH_PAID", total_cost, date_str
             )
 
             # =======================================================
@@ -271,6 +271,7 @@ class SystemService:
                 user_id, 
                 "ALLOCATION_ASSET_DELIVERED", 
                 total_cost, 
+                date_str,
                 {"assets": db_record_list} # Lưu chi tiết asset đã giao
             )
 
@@ -295,7 +296,7 @@ class SystemService:
         # A. Đủ Cash
         if current_cash >= amount:
             self.finsight_repo.update_user_cash(user_id, -amount)
-            self.finsight_repo.add_settlement_log(user_id, "CASH_OUT", amount)
+            self.finsight_repo.add_settlement_log(user_id, "CASH_OUT", amount, date_str)
             self._log_transaction(user_id, "RUT", amount, date_str, "Rút từ Cash Remainder")
             return {"status": "success", "message": "Rút tiền thành công"}
 
@@ -347,8 +348,8 @@ class SystemService:
         self.finsight_repo.update_system_cash(-cash_raised)
 
         # 4. Log Sync
-        self.finsight_repo.add_settlement_log(user_id, "LIQUIDATE_CD", cash_raised, {"sold": assets_to_sell})
-        self.finsight_repo.add_settlement_log(user_id, "CASH_OUT", amount)
+        self.finsight_repo.add_settlement_log(user_id, "LIQUIDATE_CD", cash_raised,date_str, {"sold": assets_to_sell})
+        self.finsight_repo.add_settlement_log(user_id, "CASH_OUT", amount, date_str)
         
         self._log_transaction(user_id, "RUT", amount, date_str, f"Rút (Bán {len(assets_to_sell)} CD)")
         return {"status": "success", "message": "Rút tiền & Thanh khoản thành công"}

@@ -66,14 +66,14 @@ class FinsightRepository(BaseRepository):
             self.system_doc.set(FinsightSystem(cash=amount_delta).to_dict())
 
     # --- 3. LOGGING (CHỜ SYNC NHLK) ---
-    def add_settlement_log(self, user_id, action_type, amount, details=None):
+    def add_settlement_log(self, user_id, action_type, amount, date, details=None):
         self.log_col.add({
             "user_id": user_id,
             "type": action_type,
             "amount": amount,
             "details": details or {},
             "status": "PENDING",
-            "created_at": firestore.SERVER_TIMESTAMP
+            "created_at": date
         })
 
     def get_pending_logs(self):
