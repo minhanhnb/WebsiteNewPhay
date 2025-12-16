@@ -1,4 +1,3 @@
-let switchTab; // Global function
 
 document.addEventListener("DOMContentLoaded", () => {
     const TEST_USER_ID = "user_default";
@@ -28,21 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (viewDateInput) {
         viewDateInput.value = defaultDateISO;
             }
-    // --- TAB SWITCHER ---
-    switchTab = function(tabName, el) {
-        // Active Style
-        document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
-        if(el) el.classList.add('active');
-
-        // Toggle Content
-        if(tabName === 'all') {
-            Object.values(sections).forEach(s => s.classList.remove('hidden'));
-        } else {
-            Object.values(sections).forEach(s => s.classList.add('hidden'));
-            if(sections[tabName]) sections[tabName].classList.remove('hidden');
-        }
-    };
-
+    
     // --- DATA LOADING ---
     async function loadSystemData() {
         loadingOverlay.style.display = 'flex';
@@ -185,102 +170,156 @@ document.addEventListener("DOMContentLoaded", () => {
    //Render hàng đợi settle
    function renderQueue(queue) {
     const container = document.getElementById("queueContainer");
-    const countBadge = document.getElementById("queueCount");
 
-    // --- 0. SẮP XẾP: Cũ nhất lên đầu (Tăng dần) ---
+    // --- 0. SẮP XẾP: Cũ nhất lên đầu ---
     if (queue && queue.length > 0) {
-        queue.sort((b,a ) => new Date(a.created_at) - new Date(b.created_at));
+        queue.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    }
+    const filteredQueue = (queue || []).filter(item => 
+        item.type !== 'ALLOCATION_CASH_PAID' // Loại bỏ lệnh Cash Paid
+    );
+    if (filteredQueue.length === 0) {
+        container.innerHTML = `
+            <div class="h-100 d-flex flex-column justify-content-center align-items-center text-muted opacity-50">
+                <i class="fas fa-check-double fa-2x mb-2"></i>
+                <small>Tất cả các lệnh cần xử lý đã được xử lý</small>
+            </div>`;
+        // ... (cập nhật badge, nút Sync nếu cần) ...
+        return; 
     }
 
-    // --- 1. Helper Format: Ngày + Giờ:Phút:Giây ---
+    // Helper: Format DateTime
     const formatDateTime = (dateStr) => {
         if (!dateStr) return "";
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return "";
-
         const dd = String(d.getDate()).padStart(2, '0');
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const yyyy = d.getFullYear();
-        
         const HH = String(d.getHours()).padStart(2, '0');
         const MM = String(d.getMinutes()).padStart(2, '0');
-        const SS = String(d.getSeconds()).padStart(2, '0'); // Thêm giây cho uy tín
-
+        const SS = String(d.getSeconds()).padStart(2, '0');
         return `${dd}/${mm}/${yyyy} ${HH}:${MM}:${SS}`;
     };
 
-    // Kiểm tra Queue rỗng (Giữ nguyên logic cũ)
-    if (!queue || queue.length === 0) {
-        container.innerHTML = `
-            <div class="h-100 d-flex flex-column justify-content-center align-items-center text-muted opacity-50">
-                <i class="fas fa-check-double fa-2x mb-2"></i>
-                <small>Tất cả đã được đồng bộ</small>
-            </div>`;
-        if (countBadge) {
-            countBadge.innerText = "0 lệnh";
-            countBadge.className = "badge bg-light text-muted border";
-        }
-        const btnSync = document.getElementById("btnSyncBank");
-        if (btnSync) btnSync.disabled = true;
-        return;
-    }
 
-    // Update nút Sync & Badge (Giữ nguyên)
-    const btnSync = document.getElementById("btnSyncBank");
-    if (btnSync) {
-        btnSync.disabled = false;
-        btnSync.innerHTML = `<i class="fas fa-sync me-2"></i> Gửi lệnh Lưu ký (${queue.length})`;
-    }
-    if (countBadge) {
-        countBadge.innerText = `${queue.length} chờ xử lý`;
-        countBadge.className = "badge bg-danger";
-    }
 
-    const typeMap = {
-        'CASH_IN': { text: 'Nạp Tiền', class: 'q-cash-in', icon: '+' },
-        'CASH_OUT': { text: 'Rút Tiền', class: 'q-cash-out', icon: '-' },
-        'ALLOCATION_CASH_PAID': { text: 'Thanh toán mua CD', class: 'q-alloc', icon: '-' },
-        'ALLOCATION_ASSET_DELIVERED': { text: 'Nhận CD (Kho)', class: 'q-alloc', icon: '📦' },
-        'LIQUIDATE_CD': { text: 'Bán CD (Kho)', class: 'q-liq', icon: '📦' }
-    };
-
-    // --- 2. HEADER: Tăng width cột đầu lên 145px ---
-    const headerHtml = `
-        <div style="display: flex; flex-direction: row; align-items: center; width: 100%; padding: 8px 0.5rem; border-bottom: 1px solid #dee2e6; background-color: #ffffffff; color: #212529; font-weight: 700; font-size: 0.85rem; text-transform: uppercase;">
-            <div style="width: 145px; flex-shrink: 0;">THỜI GIAN</div> <div style="flex-grow: 1; text-align: center;">LOẠI LỆNH</div>
-            <div style="width: 120px; flex-shrink: 0; text-align: right;">SỐ TIỀN</div>
-        </div>
+    // --- 1. SETUP TABLE STRUCTURE ---
+    // Tạo khung bảng và Header (thead)
+    // align-middle: Căn giữa theo chiều dọc cho tất cả các ô
+    const tableStart = `
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered mb-0" style="font-size: 0.9rem;">
+                <thead class="bg-light text-dark fw-bold small text-uppercase">
+                    <tr>
+                        <th  class="align-middle text-center" style="width: 150px;">THỜI GIAN</th>
+                        <th class="align-middle text-center" style="width: 150px;">LOẠI LỆNH</th>
+                        <th class="align-middle text-center" style="width: 100px;">CHI TIẾT</th>
+                        <th  class="align-middle text-center" style="width: 120px;">SỐ TIỀN</th>
+                      
+                    </tr>
+                </thead>
+                <tbody class="bg-white">
     `;
 
-    // --- 3. BODY: Hiển thị full ngày giờ ---
-    const bodyHtml = queue.map(item => {
-        const map = typeMap[item.type] || { text: item.type, class: 'bg-light', icon: '•' };
-        const amountStr = item.amount > 0 ? formatMoney(item.amount) : '';
+    // --- 2. BODY (ROWS) ---
+    const rowsHtml = queue.map(item => {
+        let displayType = item.type;
+        let displayClass = 'bg-light';
+        let detailHtml = '';
+
+        const details = item.details || {};
+
+        // --- XỬ LÝ LOGIC HIỂN THỊ (Giữ nguyên logic của bạn) ---
+
+        // CASE 1: BÁN CD
+        if (item.type === 'LIQUIDATE_CD') {
+            displayType = 'User bán CD'; 
+            displayClass = 'q-liq'; 
+           
+            
+            if (details.sold && Array.isArray(details.sold) && details.sold.length > 0) {
+                const soldItems = details.sold.map(s => `<b>${s.soLuong}</b> x ${s.maCD}`).join(', ');
+                detailHtml = `<div class="mt-1 text-muted small fst-italic">${soldItems}</div>`;
+            }
+        } 
         
-        // Gọi hàm format mới
-        const dateTimeDisplay = formatDateTime(item.created_at);
-
-        return `
-            <div class="queue-item" style="display: flex; flex-direction: row; align-items: center; width: 100%; padding: 8px 0.5rem; border-bottom: 1px solid #dee2e6;">
+        // CASE 2: PHÂN BỔ
+        else if (item.type === 'ALLOCATION_ASSET_DELIVERED') {
+            displayType = 'User Mua CD'; 
+            displayClass = 'q-alloc'; 
+            displayIcon = '📦';
+            
+            // --- FIX: Truy cập vào phần tử [0] của mảng 'assets' ---
+            const assetDetail = details.assets && details.assets.length > 0 ? details.assets[0] : null;
+            
+            if (assetDetail) {
+                // Lấy Mã CD và Số lượng từ phần tử đầu tiên
+                const maCD = assetDetail.maCD || "";
+                const soLuong = assetDetail.soLuong || 0;
                 
-                <div style="width: 145px; flex-shrink: 0; color: #6c757d; font-size: 0.85rem; font-family: monospace;">
+                // Xây dựng chuỗi chi tiết
+                if (maCD || soLuong) {
+                    // Ví dụ: ID003 (SL: 5)
+                    detailHtml = `<div class="mt-1 text-muted small fst-italic">
+                       ${soLuong} x ${maCD} 
+                    </div>`;
+                }
+            }
+        }
+
+        // CASE 3: NẠP/RÚT
+        else if (item.type === 'CASH_IN') {
+            displayType = 'Nạp Tiền'; displayClass = 'q-cash-in'; displayIcon = '+';
+        } else if (item.type === 'CASH_OUT') {
+            displayType = 'Rút Tiền'; displayClass = 'q-cash-out'; displayIcon = '-';
+        }
+        else 
+        {
+           return '';
+        }
+
+        const amountStr = item.amount > 0 ? formatMoney(item.amount) : '';
+        const dateTimeDisplay = formatDateTime(item.created_at);
+     
+
+        // --- TRẢ VỀ DÒNG TR ---
+        return `
+            <tr>
+                <td class="align-middle text-center">
                     ${dateTimeDisplay}
-                </div>
+                </td>
 
-                <div style="flex-grow: 1; text-align: center;">
-                    <span class="q-badge ${map.class}">${map.text}</span>
-                </div>
+                <td class="align-middle text-center">
+                    <span class="q-badge ${displayClass}">${displayType}</span>
+                  
+                </td>
+                <td class="align-middle text-center">
+                    <span >  ${detailHtml}</span>
+                  
+                </td>
 
-                <div style="width: 120px; flex-shrink: 0; text-align: right; font-weight: 700; color: #212529; font-size: 0.9rem;">
-                    ${map.icon} ${amountStr}
-                </div>
+                <td class="align-middle text-center">
+                    ${amountStr}
+                </td>
 
-            </div>
+               
+            </tr>
         `;
     }).join('');
 
-    container.innerHTML = headerHtml + bodyHtml;
+    const tableEnd = `
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    // Ghép chuỗi HTML
+    container.innerHTML = tableStart + rowsHtml + tableEnd;
+
 }
+
+
     function renderDailyProfit(perfData) {
         // 1. Lấy Element
         const pnlValueEl = document.getElementById('pnl-value');
@@ -345,13 +384,123 @@ document.addEventListener("DOMContentLoaded", () => {
             loadingOverlay.style.display = 'none';
         }
     }
+    // Hàm này được gọi khi bấm nút "Gửi lệnh Lưu ký"
+function prepareSyncData(queue) {
+    const elNotice = document.getElementById("allocationNotice");
+    const elNoticeText = document.getElementById("allocationNoticeText");
+    const elDateInput = document.getElementById("allocationDate");
+    
+    // 1. Tìm lệnh NẠP TIỀN (CASH_IN) trong queue
+    // (Giả sử queue đã được sort cũ nhất lên đầu)
+    const cashInItem = queue.find(item => item.type === 'CASH_IN');
+    
+    // Helper: Chuyển Date object thành chuỗi YYYY-MM-DD cho input type="date"
+    const toISODate = (d) => {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
 
-    document.getElementById("btnSettle")?.addEventListener("click", () => {
-        if(confirm("Xác nhận Chốt Sổ?")) callApi("/system/api/settle", { date: settleDateInput.value });
-    });
+    // Helper: Format hiển thị kiểu dd/mm/yyyy cho đẹp
+    const toReadableDate = (d) => {
+        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+    };
+
+    let targetDate = new Date(); // Mặc định là hôm nay nếu không tìm thấy
+    let hasCashIn = false;
+
+    if (cashInItem && cashInItem.created_at) {
+        // Lấy ngày từ lệnh CASH_IN
+        targetDate = new Date(cashInItem.created_at);
+        hasCashIn = true;
+    }
+
+    // 2. Set giá trị mặc định cho Input
+    if (elDateInput) {
+        elDateInput.value = toISODate(targetDate);
+    }
+
+    // 3. Hiển thị Notice thông minh
+    if (elNotice && elNoticeText) {
+        if (hasCashIn) {
+            elNotice.style.display = "flex";
+            elNotice.className = "alert alert-primary d-flex align-items-start small mb-3"; // Màu xanh dương
+            elNoticeText.innerHTML = `
+                <strong>Cơ chế T+0 kích hoạt:</strong><br>
+                Ngày phân bổ đã được tự động set về <b>${toReadableDate(targetDate)}</b> 
+                theo ngày lệnh Nạp tiền của User.
+            `;
+        } else {
+            // Trường hợp không có lệnh Nạp (ví dụ chỉ có Rút hoặc Bán CD)
+            // Có thể ẩn notice hoặc hiện cảnh báo khác
+            elNotice.style.display = "none";
+            
+            // Hoặc giữ mặc định là hôm nay
+        }
+    }
+}
+// Hàm helper chuyển Date sang chuỗi YYYY-MM-DD cho input date
+const toISODate = (d) => {
+    const date = new Date(d);
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+};
+
+// Hàm xử lý logic T0
+function handleT0Rule(queue) {
+    const elInput = document.getElementById("settleDateInput");
+    const elNotice = document.getElementById("allocationNotice");
+    const elNoticeText = document.getElementById("allocationNoticeText");
+
+    if (!elInput) return;
+
+    // 1. Tìm lệnh NẠP TIỀN (CASH_IN) đầu tiên trong queue (Queue đã sort cũ nhất lên đầu)
+    const cashInItem = queue.find(item => item.type === 'CASH_IN');
+
+    if (cashInItem) {
+        // [CASE 1] Có lệnh nạp -> Lấy ngày của lệnh đó (T0 của lệnh)
+        const t0Date = cashInItem.created_at; 
+        
+        // Auto-fill vào Input
+        elInput.value = toISODate(t0Date);
+
+        // Hiện Notice
+        if (elNotice && elNoticeText) {
+            elNotice.style.display = "block";
+            elNoticeText.innerHTML = `Hệ thống tự động chọn ngày <b>${toISODate(t0Date)}</b> theo lệnh Nạp tiền mới nhất (T+0).`;
+        }
+    } else {
+        // [CASE 2] Không có lệnh nạp -> Mặc định là Hôm nay
+        const today = new Date();
+        elInput.value = toISODate(today);
+
+        // Ẩn Notice (hoặc hiện thông báo mặc định khác tùy bạn)
+        if (elNotice) elNotice.style.display = "none";
+    }
+}
+
     document.getElementById("btnAllocate")?.addEventListener("click", () => {
-        if(confirm("Xác nhận Phân Bổ CD?")) callApi("/system/api/allocate", { date: settleDateInput.value, user_id: TEST_USER_ID });
-    });
+    const elInput = document.getElementById("settleDateInput");
+    const selectedDate = elInput.value;
+
+    if (!selectedDate) {
+        alert("Vui lòng chọn ngày phân bổ!");
+        return;
+    }
+
+    // Format ngày hiển thị trong confirm cho đẹp (dd/mm/yyyy)
+    const dateDisplay = selectedDate.split('-').reverse().join('/');
+
+    if(confirm(`Xác nhận Phân Bổ CD cho ngày: ${dateDisplay}?`)) {
+        callApi("/system/api/allocate", { 
+            date: selectedDate, // Giá trị này đã chuẩn logic T0 hoặc do User chỉnh
+            user_id: TEST_USER_ID 
+        });
+    }
+});
     document.getElementById("btnSyncBank")?.addEventListener("click", () => {
         if(confirm("Xác nhận Đồng bộ sang NHLK?")) callApi("/system/api/sync-bank", {});
     });

@@ -24,13 +24,19 @@
 <div class="control-panel-wrapper">
     
     <div class="panel-left">
-        <div>
-            <label class="control-label  d-block">Ngày thực hiện lệnh</label>
-            <input type="date" id="settleDate" class="form-control-compact w-100 py-2">
-        </div>
+       
         <div class="mb-3 border-bottom pb-3">
         
         </div>
+                            <div id="allocationNotice" class="alert alert-info small mb-2" style="display: none; border-left: 4px solid #17a2b8;">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <span id="allocationNoticeText"></span>
+                    </div>
+
+                    <div class="input-group mb-3">
+                        <span class="input-group-text">Ngày phân bổ</span>
+                        <input type="date" id="settleDateInput" class="form-control fw-bold">
+                    </div>
     
                 <button class="btn-minimal btn-outline-primary-minimal justify-content-center py-2 shadow-sm" id="btnAllocate">
                     <i class="fas fa-magic me-2"></i> Phân bổ CD (Core TVAM)
@@ -50,7 +56,13 @@
             </div>
             <span class="badge bg-secondary" id="queueCount">0 lệnh</span>
         </div>
-        
+        <div id="allocationNotice" class="alert alert-primary d-flex align-items-start small mb-3" role="alert" style="display: none; border-left: 4px solid #0d6efd;">
+    <i class="fas fa-info-circle fa-lg me-2 mt-1"></i>
+    <div id="allocationNoticeText">
+        </div>
+</div>
+
+            
         <div class="queue-list" id="queueContainer">
             <div class="text-center text-muted mt-4 small">
                 <i class="fas fa-check-circle me-1"></i> Không có lệnh chờ

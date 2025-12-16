@@ -105,12 +105,17 @@ class SystemService:
         system_fund = self.finsight_repo.get_system_account()
         bank_data = self.bank_repo.get_system_bank()
         pending_docs = self.finsight_repo.get_pending_logs()
-        
+        processed_inventory = self.get_available_inventory_with_price(view_date_str)
+        print(processed_inventory)
+        finsight_data = system_fund.to_dict()
+        finsight_data['inventory'] = processed_inventory
+        print(finsight_data)
         queue_list = [{
-            "id": doc.id, 
-            "type": doc.to_dict().get("type"),
-            "amount": doc.to_dict().get("amount", 0), 
-            "created_at": doc.to_dict().get("created_at")
+            "id": doc.get("id"),
+            "type": doc.get("type"),
+            "amount": doc.get("amount", 0),
+            "created_at": doc.get("created_at"),
+            "details": doc.get("details", {}) # Quan trọng: Cần lấy thêm details để hiển thị Asset Name ở Frontend
         } for doc in pending_docs]
 
         return {
@@ -119,7 +124,7 @@ class SystemService:
                 "profit_today": daily_profit_total,
                 "last_updated": datetime.now().strftime("%H:%M:%S")
             },
-            "finsight": system_fund.to_dict(),
+            "finsight": finsight_data,
             "bank": bank_data.to_dict(),
             "queue": queue_list,
             "total_balance_estimate": total_net_worth,
@@ -353,7 +358,68 @@ class SystemService:
         
         self._log_transaction(user_id, "RUT", amount, date_str, f"Rút (Bán {len(assets_to_sell)} CD)")
         return {"status": "success", "message": "Rút tiền & Thanh khoản thành công"}
+    # --- 5. LẤY KHO FINSIGHT KÈM GIÁ (Dùng cho UI "Tài sản Finsight") ---
+    def get_available_inventory_with_price(self, view_date_str=None):
+        """
+        Lấy danh sách CD từ CD Repo, coi đó là kho hàng khả dụng,
+        và tính giá trị thực tế tại ngày xem.
+        """
+        # 1. Parse ngày xem
+        if view_date_str:
+            try:
+                target_date = datetime.strptime(view_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                target_date = date.today()
+        else:
+            target_date = date.today()
 
+        # 2. [THEO YÊU CẦU] Lấy trực tiếp từ CD Repo
+        # Hàm này trả về list các dict chứa thongTinChung, thongTinLaiSuat...
+        inventory_list = self.cd_repo.get_all_cd()
+        
+        results = []
+        
+        for cd in inventory_list:
+            # --- TRÍCH XUẤT DỮ LIỆU TỪ CẤU TRÚC CD ---
+            # Vì cấu trúc CD thường chia thành các nhóm thông tin, ta cần lấy đúng chỗ
+            tt_chung = cd.get('thongTinChung', {})
+            tt_nhap_kho = cd.get('thongTinNhapKho', {})
+            
+            # Ưu tiên lấy mã từ thongTinChung, nếu không có thì thử lấy trực tiếp
+            ma_cd = tt_chung.get('maDoiChieu') or cd.get('maCD')
+            print("Mã CD finsight là", ma_cd)
+            # Lấy số lượng từ thongTinNhapKho
+            try:
+                so_luong = int(tt_nhap_kho.get('soLuong', 0))
+            except:
+                so_luong = int(cd.get('soLuong', 0))
+            
+            # Lấy giá vốn (đơn giá mua vào)
+            try:
+                gia_von = float(tt_nhap_kho.get('donGia', 0))
+            except:
+                gia_von = float(cd.get('donGiaVon', 0))
+
+            # Skip nếu hết hàng hoặc dữ liệu lỗi
+            if not ma_cd or so_luong <= 0: 
+                continue
+            
+            # 3. Tận dụng hàm tính giá CÓ SẴN (truyền nguyên cục cd vào)
+            price_at_date = self._calculate_cd_price_dynamic(cd, target_date)
+            
+            # Fallback: Nếu tính ra 0 (vd chưa đến ngày phát hành), dùng giá vốn
+            if price_at_date == 0:
+                price_at_date = gia_von
+            print("giá", price_at_date)
+            results.append({
+                "maCD": ma_cd,
+                "soLuong": so_luong,
+                "giaTaiNgayXem": price_at_date,
+                "khuVuc": "Kho CD (System)" 
+            })
+            print(results)
+            
+        return results
     def reset_database(self):
         """
         DANGER: Xóa toàn bộ dữ liệu trong các Collection của hệ thống.
