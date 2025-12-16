@@ -14,8 +14,9 @@
     
     <div>
         <button class="btn-minimal btn-reset" id="btnResetData">
-            <i class="fas fa-trash-alt me-2"></i>RESET DATA
+            <i class="fas fa-trash-alt me-2"></i>Xóa Data
         </button>
+        
     </div>
    </div>
            <hr class="my-2 opacity-0 ">
@@ -28,15 +29,20 @@
         <div class="mb-3 border-bottom pb-3">
         
         </div>
-                            <div id="allocationNotice" class="alert alert-info small mb-2" style="display: none; border-left: 4px solid #17a2b8;">
+        
+        <div class="input-group mb-3">
+                             <span class="input-group-text">Ngày xem hệ thống</span>
+                            <input type="date" id="viewDate" class="form-control-compact w-100 py-2 fw-bold" style="background-color: #f8f9fa;">
+                          
+                        <span class="input-group-text">Ngày phân bổ</span>
+                        <input type="date" id="settleDateInput" class="form-control-compact w-100 py-2 fw-bold" style="background-color: #f8f9fa;">
+                    </div>
+        <div id="allocationNotice" class="alert alert-info small mb-2" style="display: none; border-left: 4px solid #17a2b8;">
                         <i class="fas fa-info-circle me-2"></i>
                         <span id="allocationNoticeText"></span>
                     </div>
 
-                    <div class="input-group mb-3">
-                        <span class="input-group-text">Ngày phân bổ</span>
-                        <input type="date" id="settleDateInput" class="form-control fw-bold">
-                    </div>
+                    
     
                 <button class="btn-minimal btn-outline-primary-minimal justify-content-center py-2 shadow-sm" id="btnAllocate">
                     <i class="fas fa-magic me-2"></i> Phân bổ CD (Core TVAM)
@@ -71,13 +77,10 @@
     </div>
 </div>
     </div>
-    <label class="control-label d-block text-primary fw-bold">Ngày xem hệ thống</label>
-        <input type="date" id="viewDate" class="form-control-compact w-100 py-2 fw-bold" style="background-color: #f8f9fa;">
-        <small class="text-muted" style="font-size: 0.75rem;">*Thay đổi để xem giá trị tài sản theo ngày</small>
-
+   
     <div id="content-area">
         
-        <div id="section-user" class="section-wrapper">
+        <!-- <div id="section-user" class="section-wrapper">
             <h6 class="text-uppercase text-primary fw-bold">1. Túi User</h6>
             <div class="dashboard-grid" id="user-data-container"></div>
             <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; overflow: hidden;">
@@ -94,15 +97,19 @@
             
             <div id="pnl-bar" style="height: 4px; width: 100%; background-color: #e9ecef;"></div>
         </div>
-        </div>
+        </div> -->
+        <div id="section-user" class="section-wrapper">
+                <h6 class="text-uppercase text-primary fw-bold">1. Túi User</h6>
+                <div class="dashboard-grid" id="user-data-container"></div>
+            </div>
 
         <div id="section-system" class="section-wrapper">
-            <h6 class="text-uppercase text-danger fw-bold">2. Core TVAM</h6>
+            <h6 class="text-uppercase text-primary fw-bold">2. Core TVAM</h6>
             <div class="dashboard-grid" id="finsight-data-container"></div>
         </div>
 
         <div id="section-bank" class="section-wrapper">
-            <h6 class="text-uppercase text-success fw-bold">3. Ngân Hàng Lưu Ký</h6>
+            <h6 class="text-uppercase text-primary fw-bold">3. Ngân Hàng Lưu Ký</h6>
             <div class="dashboard-grid" id="bank-data-container"></div>
         </div>
 
