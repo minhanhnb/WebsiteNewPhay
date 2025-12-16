@@ -109,7 +109,6 @@ class SystemService:
         print(processed_inventory)
         finsight_data = system_fund.to_dict()
         finsight_data['inventory'] = processed_inventory
-        print(finsight_data)
         queue_list = [{
             "id": doc.get("id"),
             "type": doc.get("type"),

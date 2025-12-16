@@ -1,82 +1,91 @@
-
 document.addEventListener("DOMContentLoaded", () => {
+    // --- 1. CONFIG & ELEMENTS ---
     const TEST_USER_ID = "user_default";
     const loadingOverlay = document.getElementById("loading-overlay");
 
     const containers = {
         user: document.getElementById('user-data-container'),
         system: document.getElementById('finsight-data-container'),
-        bank: document.getElementById('bank-data-container')
+        bank: document.getElementById('bank-data-container'),
+        queue: document.getElementById("queueContainer")
     };
 
-    const sections = {
-        user: document.getElementById('section-user'),
-        system: document.getElementById('section-system'),
-        bank: document.getElementById('section-bank')
-    };
-
-    // Date 
-    const defaultDateISO = "2025-01-01"; 
-
-    const settleDateInput = document.getElementById("settleDate");
+    // Inputs
+    const settleDateInput = document.getElementById("settleDateInput") || document.getElementById("settleDate");
     const viewDateInput = document.getElementById("viewDate");
     const todayStr = new Date().toISOString().split('T')[0];
-    if (settleDateInput) {
-            settleDateInput.value = defaultDateISO;
-            }
-    if (viewDateInput) {
-        viewDateInput.value = defaultDateISO;
-            }
+
+    // Set Default Date (Nếu chưa có giá trị)
+    if (settleDateInput && !settleDateInput.value) settleDateInput.value = "2025-01-01";
+    if (viewDateInput && !viewDateInput.value) viewDateInput.value = "2025-01-01";
+
+    // --- 2. HELPERS (Khai báo trước để dùng ở dưới) ---
+    const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
+
+   
+
+    const createCard = (label, value, isMoney=false) => `
+        <div class="stat-card">
+            <div class="stat-label text-dark fw-bold">${label}</div>
+            <div class="stat-value text-dark">${isMoney ? formatMoney(value) : value}</div>
+        </div>`;
+
+    // --- 3. EVENT LISTENERS ---
     
-    // --- DATA LOADING ---
-    // --- DATA LOADING ---
+    // [QUAN TRỌNG] Trigger load sync data khi thay đổi View Date
+    if (viewDateInput) {
+        viewDateInput.addEventListener("change", () => {
+            console.log("🔄 View Date changed to:", viewDateInput.value);
+            // forceUpdateDate = true: Bắt buộc load theo ngày user chọn, bỏ qua logic tự động nhảy ngày
+            loadSystemData(true); 
+        });
+    }
+
+    document.getElementById("btnResetData")?.addEventListener("click", async () => {
+        if (!confirm("⚠️ NGUY HIỂM: Bạn có chắc chắn muốn XÓA TOÀN BỘ dữ liệu?")) return;
+        await callApi("/system/api/reset", {});
+        window.location.reload();
+    });
+
+    // --- 4. MAIN LOGIC: LOAD DATA ---
     async function loadSystemData(forceUpdateDate = false) {
-        loadingOverlay.style.display = 'flex';
+        if(loadingOverlay) loadingOverlay.style.display = 'flex';
+        
         try {
-            // Lấy ngày hiện tại trên input
+            // Lấy ngày từ input (hoặc mặc định hôm nay)
             let vDate = viewDateInput ? viewDateInput.value : todayStr;
             
-            // Gọi API
+            console.log(`📡 Fetching data for date: ${vDate} (Force: ${forceUpdateDate})`);
+
             const res = await fetch(`/system/api/overview?user_id=${TEST_USER_ID}&view_date=${vDate}`);
             const result = await res.json();
 
             if (res.ok && result.success) {
-                const { user, bank, finsight, queue } = result.data; // queue nằm trong result.data
+                const { user, bank, finsight, queue } = result.data;
 
-                // --- LOGIC MỚI: Tự động set ngày theo lệnh Nạp tiền (CASH_IN) ---
-                // Chỉ chạy logic này nếu queue có dữ liệu
+                // --- LOGIC TỰ ĐỘNG CHỌN NGÀY THEO LỆNH NẠP (CASH_IN) ---
                 if (queue && queue.length > 0) {
-                    // Tìm lệnh CASH_IN gần nhất (giả sử dữ liệu trả về chưa sort hoặc đã sort)
-                    // Ta sort lại cho chắc chắn: Mới nhất lên đầu để lấy ngày gần nhất
                     const sortedForDate = [...queue].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                     const cashInItem = sortedForDate.find(item => item.type === 'CASH_IN');
 
                     if (cashInItem) {
-                        const cashInDateRaw = cashInItem.created_at;
-                        const cashInDateISO = toISODate(cashInDateRaw); // Helper function ở dưới
+                        const cashInDateISO = toISODate(cashInItem.created_at);
 
-                        // 1. Cập nhật Ngày Phân Bổ (Allocation Date)
-                        if (settleDateInput) {
-                            settleDateInput.value = cashInDateISO;
-                        }
-                        // Cập nhật cả input nếu ID bị lệch (fix lỗi ID settleDate vs settleDateInput)
-                        const elSettleInputAlt = document.getElementById("settleDateInput");
-                        if (elSettleInputAlt) elSettleInputAlt.value = cashInDateISO;
+                        // A. Luôn cập nhật ngày Phân bổ (Settle Date) theo lệnh nạp mới nhất
+                        if (settleDateInput) settleDateInput.value = cashInDateISO;
 
-                        // 2. Cập nhật View Date (Ngày xem) theo yêu cầu của bạn
-                        // Logic: Nếu ngày xem hiện tại KHÁC ngày nạp tiền, ta cập nhật và reload lại data
-                        // để dashboard hiển thị đúng số liệu của ngày nạp tiền.
+                        // B. Logic cập nhật View Date
+                        // Chỉ tự động chuyển View Date nếu user CHƯA chọn thủ công (forceUpdateDate = false)
                         if (viewDateInput && viewDateInput.value !== cashInDateISO && !forceUpdateDate) {
-                            console.log(`Auto switch ViewDate to ${cashInDateISO}`);
+                            console.log(`🔀 Auto-switch ViewDate to ${cashInDateISO} (User hasn't manually changed yet)`);
                             viewDateInput.value = cashInDateISO;
                             
-                            // Gọi đệ quy lại chính nó để load lại dữ liệu theo ngày mới
-                            // forceUpdateDate = true để tránh vòng lặp vô tận
+                            // Gọi đệ quy để load lại data đúng theo ngày nạp tiền
                             await loadSystemData(true); 
-                            return; // Dừng lần render hiện tại (vì data cũ sai ngày)
+                            return; 
                         }
-                        
-                        // Hiển thị thông báo T+0
+
+                        // Hiển thị thông báo
                         const elNotice = document.getElementById("allocationNotice");
                         const elNoticeText = document.getElementById("allocationNoticeText");
                         if (elNotice && elNoticeText) {
@@ -85,31 +94,22 @@ document.addEventListener("DOMContentLoaded", () => {
                         }
                     }
                 }
-                // -----------------------------------------------------------
 
-                renderUserWallet(user, result.data.total_balance_estimate);
+                // --- RENDER DỮ LIỆU ---
+                renderUserWallet(user, result.data.total_balance_estimate, result.data.performance.profit_today);
                 renderSystemFund(finsight, user);
                 renderBank(bank);
                 renderQueue(queue); 
-                renderDailyProfit(result.data.performance);
+                // renderDailyProfit(result.data.performance); // Nếu có hàm này
             }
         } catch (err) {
-            console.error(err);
+            console.error("❌ Error loading data:", err);
         } finally {
-            loadingOverlay.style.display = 'none';
+            if(loadingOverlay) loadingOverlay.style.display = 'none';
         }
     }
 
-    // --- RENDER HELPERS ---
-    const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
-
-    // CARD TỐI GIẢN (Bỏ hết tham số màu mè, chỉ còn Label & Value)
-    const createCard = (label, value, isMoney=false) => `
-        <div class="stat-card">
-            <div class="stat-label">${label}</div>
-            <div class="stat-value">${isMoney ? formatMoney(value) : value}</div>
-        </div>`;
-
+  
     // --- RENDER SECTIONS ---
 
 
@@ -462,7 +462,7 @@ function renderSystemFund(sys, user) {
     //     if (pnlBarEl) pnlBarEl.style.backgroundColor = barColor;
     // }
     // 1. User Wallet & Profit Structure (Render khung HTML cho cả 2 thẻ)
-function renderUserWallet(user, totalEst) {
+function renderUserWallet(user, totalEst, profit) {
     if (!user) return;
     
     // Card 1: Số dư Ví (Dùng hàm createCard có sẵn)
@@ -474,7 +474,7 @@ function renderUserWallet(user, totalEst) {
         <div class="stat-card">
             <div class="stat-label text-dark fw-bold">Tiền lời hôm nay</div>
             <div class="d-flex align-items-center h-100">
-                <div class="stat-value text-success" id="pnl-value">--</div>
+                <div class="stat-value text-success" id="pnl-value">${profit}</div>
             </div>
         </div>
     `;
@@ -640,6 +640,7 @@ function handleT0Rule(queue) {
         if (elNotice) elNotice.style.display = "none";
     }
 }
+   
 
     document.getElementById("btnAllocate")?.addEventListener("click", () => {
     const elInput = document.getElementById("settleDateInput");
