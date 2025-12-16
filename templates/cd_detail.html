@@ -36,7 +36,12 @@
 
 {% block content %}
 <div class="detail-container">
-    <h2>Chi tiết CD – {{ maDoiChieu }}</h2>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Chi tiết CD – {{ maDoiChieu }}</h2>
+        <button id="btnOpenEdit" style="background-color: #ffc107; border: none; padding: 8px 16px; cursor: pointer; border-radius: 4px; font-weight: bold;">
+            ✏️ Sửa thông tin
+        </button>
+    </div>
 
     <div class="card">
         <h3>Mô phỏng giá trị</h3>
@@ -49,7 +54,7 @@
 
             <div class="control-group">
                 <label>Lãi suất cam kết với user (%/năm):</label>
-                <input type="number" id="userInterestRate" class="form-control" step="0.01" value="4.0">
+                <input type="number" id="userInterestRate" class="form-control" step="0.1">
             </div>
             
             <div class="control-group" style="justify-content: center;">
