@@ -387,7 +387,6 @@ class SystemService:
             
             # Ưu tiên lấy mã từ thongTinChung, nếu không có thì thử lấy trực tiếp
             ma_cd = tt_chung.get('maDoiChieu') or cd.get('maCD')
-            print("Mã CD finsight là", ma_cd)
             # Lấy số lượng từ thongTinNhapKho
             try:
                 so_luong = int(tt_chung.get('CDKhaDung', 0))
@@ -410,14 +409,12 @@ class SystemService:
             # Fallback: Nếu tính ra 0 (vd chưa đến ngày phát hành), dùng giá vốn
             if price_at_date == 0:
                 price_at_date = gia_von
-            print("giá", price_at_date)
             results.append({
                 "maCD": ma_cd,
                 "soLuong": so_luong,
                 "giaTaiNgayXem": price_at_date,
                 "khuVuc": "Kho CD (System)" 
             })
-            print(results)
             
         return results
     def reset_database(self):

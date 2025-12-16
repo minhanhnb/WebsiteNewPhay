@@ -125,11 +125,12 @@ function renderSystemFund(sys, user) {
         return sum + (item.giaTaiNgayXem * item.soLuong);
     }, 0);
 
+     // 1. Cập nhật invRows (Thêm padding cho các ô dữ liệu)
     const invRows = sysInventory.map(item => `
         <tr>
-            <td class="fw-bold text-dark" style="font-size: 0.85rem;">${item.maCD}</td>
-            <td class="text-end text-dark" style="font-size: 0.85rem;">${new Intl.NumberFormat('en-US').format(item.soLuong)}</td>
-            <td class="text-end text-dark" style="font-size: 0.8rem;">${formatMoney(item.giaTaiNgayXem)}</td>
+            <td class="fw-bold text-dark" style="font-size: 0.85rem; padding: 10px 4px;">${item.maCD}</td>
+            <td class="text-end text-dark" style="font-size: 0.85rem; padding: 10px 4px;">${new Intl.NumberFormat('en-US').format(item.soLuong)}</td>
+            <td class="text-end text-dark" style="font-size: 0.8rem; padding: 10px 4px;">${formatMoney(item.giaTaiNgayXem)}</td>
         </tr>
     `).join('');
 
@@ -158,6 +159,9 @@ function renderSystemFund(sys, user) {
     `;
 
     // Card 2: Tài sản Finsight (Hàng 1 - Phải)
+   
+
+    // 2. Cập nhật cardFinsightAssets
     const cardFinsightAssets = `
         <div class="stat-card">
             <div class="d-flex justify-content-between align-items-start">
@@ -167,23 +171,23 @@ function renderSystemFund(sys, user) {
                 </div>
             </div>
             
-            <div class="mt-3 pt-2 border-top" style="max-height: 120px; overflow-y: auto;">
-                <table class="table table-sm table-borderless table-minimal mb-0">
+            <div class="mt-3 pt-2 border-top" style="max-height: 140px; width: 100%; overflow-y: auto;">
+                
+                <table class="table table-borderless table-minimal mb-0 w-100">
                     <thead class="text-dark small border-bottom">
                         <tr>
-                            <th>Mã</th>
-                            <th class="text-end">SL</th>
-                            <th class="text-end">Giá(T)</th>
+                            <th style="padding: 10px 4px;">Mã</th>
+                            <th class="text-end" style="padding: 8px 4px;">SL</th>
+                            <th class="text-end" style="padding: 10px 4px;">Giá ngày xem</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${invRows.length > 0 ? invRows : '<tr><td colspan="3" class="text-center small text-dark">Kho trống</td></tr>'}
+                        ${invRows.length > 0 ? invRows : '<tr><td colspan="3" class="text-center small text-dark py-3">Kho trống</td></tr>'}
                     </tbody>
                 </table>
             </div>
         </div>
     `;
-
     // Card 3: Tiền User (Hàng 2 - Trái)
     const cardUserCash = `
         <div class="stat-card">
@@ -266,27 +270,26 @@ function renderSystemFund(sys, user) {
         `;
     }
    //Render hàng đợi settle
-   function renderQueue(queue) {
+  function renderQueue(queue) {
     const container = document.getElementById("queueContainer");
 
-    // --- 0. SẮP XẾP: Cũ nhất lên đầu ---
+    // --- 0. SẮP XẾP ---
     if (queue && queue.length > 0) {
         queue.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     }
-    const filteredQueue = (queue || []).filter(item => 
-        item.type !== 'ALLOCATION_CASH_PAID' // Loại bỏ lệnh Cash Paid
-    );
+    
+    // Lọc danh sách trước khi render để code sạch hơn
+    const filteredQueue = (queue || []).filter(item => item.type !== 'ALLOCATION_CASH_PAID');
+
     if (filteredQueue.length === 0) {
         container.innerHTML = `
             <div class="h-100 d-flex flex-column justify-content-center align-items-center text-muted opacity-50">
                 <i class="fas fa-check-double fa-2x mb-2"></i>
                 <small>Tất cả các lệnh cần xử lý đã được xử lý</small>
             </div>`;
-        // ... (cập nhật badge, nút Sync nếu cần) ...
         return; 
     }
 
-    // Helper: Format DateTime
     const formatDateTime = (dateStr) => {
         if (!dateStr) return "";
         const d = new Date(dateStr);
@@ -300,45 +303,44 @@ function renderSystemFund(sys, user) {
         return `${dd}/${mm}/${yyyy} ${HH}:${MM}:${SS}`;
     };
 
-
+    // --- STYLE DÙNG CHUNG CHO CÁC Ô ---
+    // vertical-align: middle -> Căn giữa dọc
+    // text-align: center -> Căn giữa ngang
+    // padding: 16px -> Giãn cách rộng rãi
+    const cellStyle = 'padding: 15px; vertical-align: middle; text-align: center;';
 
     // --- 1. SETUP TABLE STRUCTURE ---
-    // Tạo khung bảng và Header (thead)
-    // align-middle: Căn giữa theo chiều dọc cho tất cả các ô
     const tableStart = `
         <div class="table-responsive">
             <table class="table table-hover table-bordered mb-0" style="font-size: 0.9rem;">
                 <thead class="bg-light text-dark fw-bold small text-uppercase">
                     <tr>
-                        <th  class="align-middle text-center" style="width: 150px;">THỜI GIAN</th>
-                        <th class="align-middle text-center" style="width: 150px;">LOẠI LỆNH</th>
-                        <th class="align-middle text-center" style="width: 100px;">CHI TIẾT</th>
-                        <th  class="align-middle text-center" style="width: 120px;">SỐ TIỀN</th>
-                      
+                        <th style="${cellStyle} width: 160px;">THỜI GIAN</th>
+                        <th style="${cellStyle} width: 250px;">LỆNH</th>
+                        <th style="${cellStyle} width: 250px;">CHI TIẾT</th>
+                        <th style="${cellStyle} width: 150px;">SỐ TIỀN</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white">
     `;
 
     // --- 2. BODY (ROWS) ---
-    const rowsHtml = queue.map(item => {
+    const rowsHtml = filteredQueue.map(item => {
         let displayType = item.type;
         let displayClass = 'bg-light';
         let detailHtml = '';
 
         const details = item.details || {};
 
-        // --- XỬ LÝ LOGIC HIỂN THỊ (Giữ nguyên logic của bạn) ---
-
         // CASE 1: BÁN CD
         if (item.type === 'LIQUIDATE_CD') {
             displayType = 'User bán CD'; 
             displayClass = 'q-liq'; 
-           
             
             if (details.sold && Array.isArray(details.sold) && details.sold.length > 0) {
                 const soldItems = details.sold.map(s => `<b>${s.soLuong}</b> x ${s.maCD}`).join(', ');
-                detailHtml = `<div class="mt-1 text-muted small fst-italic">${soldItems}</div>`;
+                // Thêm class text-center vào div con để chắc chắn nó cũng căn giữa
+                detailHtml = `<div class="mt-1 text-muted small fst-italic text-center">${soldItems}</div>`;
             }
         } 
         
@@ -346,20 +348,16 @@ function renderSystemFund(sys, user) {
         else if (item.type === 'ALLOCATION_ASSET_DELIVERED') {
             displayType = 'User Mua CD'; 
             displayClass = 'q-alloc'; 
-            displayIcon = '📦';
             
-            // --- FIX: Truy cập vào phần tử [0] của mảng 'assets' ---
             const assetDetail = details.assets && details.assets.length > 0 ? details.assets[0] : null;
             
             if (assetDetail) {
-                // Lấy Mã CD và Số lượng từ phần tử đầu tiên
                 const maCD = assetDetail.maCD || "";
                 const soLuong = assetDetail.soLuong || 0;
                 
-                // Xây dựng chuỗi chi tiết
                 if (maCD || soLuong) {
-                    // Ví dụ: ID003 (SL: 5)
-                    detailHtml = `<div class="mt-1 text-muted small fst-italic">
+                    // Thêm class text-center
+                    detailHtml = `<div class="mt-1 text-muted small fst-italic text-center">
                        ${soLuong} x ${maCD} 
                     </div>`;
                 }
@@ -368,40 +366,36 @@ function renderSystemFund(sys, user) {
 
         // CASE 3: NẠP/RÚT
         else if (item.type === 'CASH_IN') {
-            displayType = 'Nạp Tiền'; displayClass = 'q-cash-in'; displayIcon = '+';
+            displayType = 'Nạp Tiền'; displayClass = 'q-cash-in';
         } else if (item.type === 'CASH_OUT') {
-            displayType = 'Rút Tiền'; displayClass = 'q-cash-out'; displayIcon = '-';
+            displayType = 'Rút Tiền'; displayClass = 'q-cash-out';
         }
-        else 
-        {
+        else {
            return '';
         }
 
         const amountStr = item.amount > 0 ? formatMoney(item.amount) : '';
         const dateTimeDisplay = formatDateTime(item.created_at);
      
-
         // --- TRẢ VỀ DÒNG TR ---
+        // Áp dụng cellStyle cho tất cả các ô td
         return `
             <tr>
-                <td class="align-middle text-center">
+                <td style="${cellStyle}">
                     ${dateTimeDisplay}
                 </td>
 
-                <td class="align-middle text-center">
+                <td style="${cellStyle}">
                     <span class="q-badge ${displayClass}">${displayType}</span>
-                  
                 </td>
-                <td class="align-middle text-center">
-                    <span >  ${detailHtml}</span>
-                  
+                
+                <td style="${cellStyle}">
+                    ${detailHtml}
                 </td>
 
-                <td class="align-middle text-center">
+                <td class="fw-bold text-dark" style="${cellStyle}">
                     ${amountStr}
                 </td>
-
-               
             </tr>
         `;
     }).join('');
@@ -412,9 +406,7 @@ function renderSystemFund(sys, user) {
         </div>
     `;
 
-    // Ghép chuỗi HTML
     container.innerHTML = tableStart + rowsHtml + tableEnd;
-
 }
 
     // // 1. User Wallet

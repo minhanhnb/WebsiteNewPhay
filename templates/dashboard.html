@@ -7,18 +7,15 @@
 {% block content %}
 <div class="system-container">
     
-   <div class="d-flex justify-content-between align-items-center mb-4 pt-4">
-    <div>
-        <h3 class="fw-bold m-0 text-dark">Tổng quan hệ thống</h3>
-    </div>
-    
-    <div>
-        <button class="btn-minimal btn-reset" id="btnResetData">
-            <i class="fas fa-trash-alt me-2"></i>Xóa Data
+   <div class="header-row">
+        <h3 class="title">Tổng quan hệ thống</h3>
+
+        <button class="btn-reset" id="btnResetData">
+            Xóa Data
         </button>
-        
-    </div>
-   </div>
+        </div>
+
+
            <hr class="my-2 opacity-0 ">
 
 
@@ -30,14 +27,20 @@
         
         </div>
         
-        <div class="input-group mb-3">
-                             <span class="input-group-text">Ngày xem hệ thống</span>
-                            <input type="date" id="viewDate" class="form-control-compact w-100 py-2 fw-bold" style="background-color: #f8f9fa;">
-                          
-                        <span class="input-group-text">Ngày phân bổ</span>
-                        <input type="date" id="settleDateInput" class="form-control-compact w-100 py-2 fw-bold" style="background-color: #f8f9fa;">
-                    </div>
-        <div id="allocationNotice" class="alert alert-info small mb-2" style="display: none; border-left: 4px solid #17a2b8;">
+    <div class="custom-control-container-vertical">
+    
+    <div class="custom-input-group">
+        <span class="custom-label">Ngày xem hệ thống</span>
+        <input type="date" id="viewDate" class="custom-input">
+    </div>
+
+    <div class="custom-input-group">
+        <span class="custom-label">Ngày phân bổ</span>
+        <input type="date" id="settleDateInput" class="custom-input">
+    </div>
+
+</div>
+        <div id="allocationNotice" class="alert alert-info small mb-2" style="display: none;">
                         <i class="fas fa-info-circle me-2"></i>
                         <span id="allocationNoticeText"></span>
                     </div>
@@ -60,7 +63,6 @@
             <div class="fw-bold text-muted small text-uppercase">
                 Lệnh chờ gửi NHLK
             </div>
-            <span class="badge bg-secondary" id="queueCount">0 lệnh</span>
         </div>
         <div id="allocationNotice" class="alert alert-primary d-flex align-items-start small mb-3" role="alert" style="display: none; border-left: 4px solid #0d6efd;">
     <i class="fas fa-info-circle fa-lg me-2 mt-1"></i>
