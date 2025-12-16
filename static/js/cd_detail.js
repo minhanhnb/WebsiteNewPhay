@@ -93,6 +93,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // --- CALCULATION LOGIC ---
 
+    // --- 1. CẬP NHẬT LOGIC VẼ BIỂU ĐỒ ---
+    // --- 1. CẬP NHẬT LOGIC VẼ BIỂU ĐỒ ---
+    // --- 1. CẬP NHẬT LOGIC VẼ BIỂU ĐỒ ---
     function calculateAndDraw() {
         if (!cdData) return;
 
@@ -113,7 +116,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const dataCustom = [];
         const dataMarketValue = [];
 
-        // Base price calculation (Ngày đầu tiên)
+        // Tính Giá Gốc tại ngày phát hành (P_0) để làm mốc Reset
         const firstNextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, issueDate);
         const priceBaseDay0 = calculateYieldFormula(menhGia, cdCouponRate, userInputRate, firstNextCoupon, issueDate, issueDate, maturityDate, tanSuatStr);
 
@@ -123,30 +126,36 @@ document.addEventListener("DOMContentLoaded", async () => {
         while (loopDate <= maturityDate && safetyCount < 3000) {
             labels.push(formatDateVN(loopDate));
 
-            // [FIXED LOGIC] Lấy ngày trả lãi gần nhất trước đó để tính lãi tích luỹ trong kỳ này
-            const lastCoupon = getLastCouponDate(issueDate, maturityDate, tanSuatStr, loopDate);
+            // 1. Yield Price (Công thức chuẩn)
             const nextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, loopDate);
-
-            // 1. Yield Price
-            // Lưu ý: Hàm calculateYieldFormula đã được update để xử lý reset giá
             const pYield = calculateYieldFormula(menhGia, cdCouponRate, userInputRate, nextCoupon, loopDate, issueDate, maturityDate, tanSuatStr);
             dataYield.push(pYield);
 
-            // 2. Custom Price (Yield + X)
-            // Logic cũ: (loopDate - issueDate) -> Sai vì nó cộng dồn mãi mãi.
-            // Logic mới: (loopDate - lastCoupon) -> Chỉ tính ngày nắm giữ trong kỳ lãi hiện tại.
-            const daysPassedInPeriod = (loopDate - lastCoupon) / (1000 * 60 * 60 * 24);
+            // -------------------------------------------------------------
+            // [CẬP NHẬT] 2. Custom Price: Reset vào ngày HÔM SAU ngày trả lãi
+            // -------------------------------------------------------------
+            // Mẹo: Lấy ngày hôm qua để tìm mốc kỳ hạn.
+            // - Nếu loopDate là ngày trả lãi: hôm qua vẫn thuộc kỳ cũ -> tính tiếp lãi -> Giá Cao.
+            // - Nếu loopDate là ngày sau trả lãi: hôm qua là ngày trả lãi (đầu kỳ mới) -> Reset -> Giá Thấp.
             
-            // Công thức: Giá Gốc + (Giá Gốc * Lãi User * Số ngày trong kỳ / 365)
-            // priceBaseDay0 ở đây tượng trưng cho giá Clean Price (Gốc)
-            const pCustom = priceBaseDay0 + (priceBaseDay0 * userInputRate * daysPassedInPeriod) / 365;
+            const prevDate = new Date(loopDate);
+            prevDate.setDate(prevDate.getDate() - 1); 
+            
+            // Tìm mốc trả lãi gần nhất của "Hôm qua"
+            const lastCouponForCustom = getLastCouponDate(issueDate, maturityDate, tanSuatStr, prevDate);
+            
+            const daysPassedInPeriod = (loopDate - lastCouponForCustom) / (1000 * 60 * 60 * 24);
+            
+            // Công thức lãi kép: Base * (1 + r)^t
+            const pCustom = priceBaseDay0 * Math.pow(1 + userInputRate/365, daysPassedInPeriod);
+            
             dataCustom.push(pCustom);
 
             // 3. Market Value
             const pMarketValue = calculateMarketValue(menhGia, cdCouponRate, loopDate, issueDate, tanSuatStr);
             dataMarketValue.push(pMarketValue);
 
-            loopDate.setDate(loopDate.getDate() + 30); 
+            loopDate.setDate(loopDate.getDate() + 5); 
             safetyCount++;
         }
 
@@ -154,7 +163,49 @@ document.addEventListener("DOMContentLoaded", async () => {
         updateDisplayOnly(); 
     }
 
-    // --- 2. HÀM CÔNG THỨC CHÍNH XÁC (Đã sửa logic Reset) ---
+    // --- 2. CẬP NHẬT LOGIC HIỂN THỊ SỐ (TEXT) ---
+    function updateDisplayOnly() {
+        if (!cdData) return;
+        
+        const selectedDate = new Date(elDate.value); 
+        const userInputRate = parseMoneyVN(elRate.value) / 100;
+        const c1 = cdData.thongTinChung || {};
+        const c2 = cdData.thongTinLaiSuat || {};
+        
+        const menhGia = parseMoneyVN(c1.menhGia);
+        const cdCouponRate = parseMoneyVN(c2.laiSuat) / 100;
+        const issueDate = parseDateVN(c1.ngayPhatHanh);
+        const maturityDate = parseDateVN(c1.ngayDaoHan);
+        const tanSuatStr = c2.tanSuatTraLai || "Cuối kỳ";
+
+        if (!issueDate || !maturityDate) return;
+
+        // 1. Yield Calc
+        const nextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, selectedDate);
+        const valYield = calculateYieldFormula(menhGia, cdCouponRate, userInputRate, nextCoupon, selectedDate, issueDate, maturityDate, tanSuatStr);
+
+        // -------------------------------------------------------------
+        // [CẬP NHẬT] 2. Custom Calc (Logic đồng bộ với biểu đồ)
+        // -------------------------------------------------------------
+        const firstNextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, issueDate);
+        const priceBaseDay0 = calculateYieldFormula(menhGia, cdCouponRate, userInputRate, firstNextCoupon, issueDate, issueDate, maturityDate, tanSuatStr);
+
+        // Dùng logic "Hôm qua" để xác định reset
+        const prevDate = new Date(selectedDate);
+        prevDate.setDate(prevDate.getDate() - 1);
+        
+        const lastCouponForCustom = getLastCouponDate(issueDate, maturityDate, tanSuatStr, prevDate);
+        const daysPassedInPeriod = (selectedDate - lastCouponForCustom) / (1000 * 60 * 60 * 24);
+        
+        const valCustom = priceBaseDay0 * Math.pow(1 + userInputRate/365, daysPassedInPeriod);
+        
+        // 3. Market Value
+        const valMarketValue = calculateMarketValue(menhGia, cdCouponRate, selectedDate, issueDate, tanSuatStr);
+
+        if(elPriceYield) elPriceYield.innerText = formatCurrency(valYield);
+        if(elPriceCustom) elPriceCustom.innerText = formatCurrency(valCustom);
+        if(elMarketValue) elMarketValue.innerText = formatCurrency(valMarketValue);
+    }
     function calculateYieldFormula(M, r_CD, r_User, nextDate, currDate, issueDate, maturityDate, freqStr) {
         // Nếu đã đáo hạn
         if (currDate >= maturityDate) {
@@ -221,44 +272,46 @@ document.addEventListener("DOMContentLoaded", async () => {
         return M + accruedInterest;
     }
 
-    function updateDisplayOnly() {
-        if (!cdData) return;
+    // function updateDisplayOnly() {
+    //     if (!cdData) return;
         
-        const selectedDate = new Date(elDate.value); 
-        const userInputRate = parseMoneyVN(elRate.value) / 100;
+    //     const selectedDate = new Date(elDate.value); 
+    //     const userInputRate = parseMoneyVN(elRate.value) / 100;
+    //     const c1 = cdData.thongTinChung || {};
+    //     const c2 = cdData.thongTinLaiSuat || {};
         
-        const c1 = cdData.thongTinChung || {};
-        const c2 = cdData.thongTinLaiSuat || {};
-        
-        const menhGia = parseMoneyVN(c1.menhGia);
-        const cdCouponRate = parseMoneyVN(c2.laiSuat) / 100;
-        const issueDate = parseDateVN(c1.ngayPhatHanh);
-        const maturityDate = parseDateVN(c1.ngayDaoHan);
-        const tanSuatStr = c2.tanSuatTraLai || "Cuối kỳ";
+    //     const menhGia = parseMoneyVN(c1.menhGia);
+    //     const cdCouponRate = parseMoneyVN(c2.laiSuat) / 100;
+    //     const issueDate = parseDateVN(c1.ngayPhatHanh);
+    //     const maturityDate = parseDateVN(c1.ngayDaoHan);
+    //     const tanSuatStr = c2.tanSuatTraLai || "Cuối kỳ";
 
-        if (!issueDate || !maturityDate) return;
+    //     if (!issueDate || !maturityDate) return;
 
-        // Yield
-        const nextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, selectedDate);
-        const valYield = calculateYieldFormula(menhGia, cdCouponRate, userInputRate, nextCoupon, selectedDate, issueDate, maturityDate, tanSuatStr);
+    //     // 1. Yield Calc
+    //     const nextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, selectedDate);
+    //     const valYield = calculateYieldFormula(menhGia, cdCouponRate, userInputRate, nextCoupon, selectedDate, issueDate, maturityDate, tanSuatStr);
 
-        // Custom
-        // Tính từ ngày trả lãi gần nhất
-        const lastCoupon = getLastCouponDate(issueDate, maturityDate, tanSuatStr, selectedDate);
-        // Lấy giá gốc tại đầu kỳ (tạm tính là yield tại ngày đầu kỳ đó)
-        const nextCouponForBase = getNextCouponDate(issueDate, maturityDate, tanSuatStr, lastCoupon);
-        const priceBase = calculateYieldFormula(menhGia, cdCouponRate, userInputRate, nextCouponForBase, lastCoupon, issueDate, maturityDate, tanSuatStr);
+    //     // -------------------------------------------------------------
+    //     // [CẬP NHẬT] 2. Custom Calc: Đồng bộ logic lãi kép
+    //     // -------------------------------------------------------------
+    //     // Tính lại giá gốc ngày đầu
+    //     const firstNextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, issueDate);
+    //     const priceBaseDay0 = calculateYieldFormula(menhGia, cdCouponRate, userInputRate, firstNextCoupon, issueDate, issueDate, maturityDate, tanSuatStr);
         
-        const daysPassed = (selectedDate - lastCoupon) / (1000 * 60 * 60 * 24);
-        const valCustom = priceBase + (priceBase * userInputRate * daysPassed) / 365;
+    //     // Tính số ngày từ đầu đến ngày chọn
+    //     const daysFromStart = (selectedDate - issueDate) / (1000 * 60 * 60 * 24);
         
-        // Market
-        const valMarketValue = calculateMarketValue(menhGia, cdCouponRate, selectedDate, issueDate, tanSuatStr);
+    //     // Áp dụng công thức luỹ thừa
+    //     const valCustom = priceBaseDay0 * Math.pow(1 + userInputRate/365, daysFromStart);
 
-        if(elPriceYield) elPriceYield.innerText = formatCurrency(valYield);
-        if(elPriceCustom) elPriceCustom.innerText = formatCurrency(valCustom);
-        if(elMarketValue) elMarketValue.innerText = formatCurrency(valMarketValue);
-    }
+    //     // 3. Market Value
+    //     const valMarketValue = calculateMarketValue(menhGia, cdCouponRate, selectedDate, issueDate, tanSuatStr);
+
+    //     if(elPriceYield) elPriceYield.innerText = formatCurrency(valYield);
+    //     if(elPriceCustom) elPriceCustom.innerText = formatCurrency(valCustom);
+    //     if(elMarketValue) elMarketValue.innerText = formatCurrency(valMarketValue);
+    // }
 
     // --- HELPER FUNCTIONS ---
 
