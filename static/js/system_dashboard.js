@@ -29,24 +29,68 @@ document.addEventListener("DOMContentLoaded", () => {
             }
     
     // --- DATA LOADING ---
-    async function loadSystemData() {
+    // --- DATA LOADING ---
+    async function loadSystemData(forceUpdateDate = false) {
         loadingOverlay.style.display = 'flex';
         try {
-            // Lấy ngày từ input viewDate
-            const vDate = viewDateInput ? viewDateInput.value : todayStr;
+            // Lấy ngày hiện tại trên input
+            let vDate = viewDateInput ? viewDateInput.value : todayStr;
             
-            // Gọi API với query parameter view_date
+            // Gọi API
             const res = await fetch(`/system/api/overview?user_id=${TEST_USER_ID}&view_date=${vDate}`);
             const result = await res.json();
 
-            
             if (res.ok && result.success) {
-                // ... render logic giữ nguyên ...
-                const { user, bank, finsight } = result.data;
+                const { user, bank, finsight, queue } = result.data; // queue nằm trong result.data
+
+                // --- LOGIC MỚI: Tự động set ngày theo lệnh Nạp tiền (CASH_IN) ---
+                // Chỉ chạy logic này nếu queue có dữ liệu
+                if (queue && queue.length > 0) {
+                    // Tìm lệnh CASH_IN gần nhất (giả sử dữ liệu trả về chưa sort hoặc đã sort)
+                    // Ta sort lại cho chắc chắn: Mới nhất lên đầu để lấy ngày gần nhất
+                    const sortedForDate = [...queue].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    const cashInItem = sortedForDate.find(item => item.type === 'CASH_IN');
+
+                    if (cashInItem) {
+                        const cashInDateRaw = cashInItem.created_at;
+                        const cashInDateISO = toISODate(cashInDateRaw); // Helper function ở dưới
+
+                        // 1. Cập nhật Ngày Phân Bổ (Allocation Date)
+                        if (settleDateInput) {
+                            settleDateInput.value = cashInDateISO;
+                        }
+                        // Cập nhật cả input nếu ID bị lệch (fix lỗi ID settleDate vs settleDateInput)
+                        const elSettleInputAlt = document.getElementById("settleDateInput");
+                        if (elSettleInputAlt) elSettleInputAlt.value = cashInDateISO;
+
+                        // 2. Cập nhật View Date (Ngày xem) theo yêu cầu của bạn
+                        // Logic: Nếu ngày xem hiện tại KHÁC ngày nạp tiền, ta cập nhật và reload lại data
+                        // để dashboard hiển thị đúng số liệu của ngày nạp tiền.
+                        if (viewDateInput && viewDateInput.value !== cashInDateISO && !forceUpdateDate) {
+                            console.log(`Auto switch ViewDate to ${cashInDateISO}`);
+                            viewDateInput.value = cashInDateISO;
+                            
+                            // Gọi đệ quy lại chính nó để load lại dữ liệu theo ngày mới
+                            // forceUpdateDate = true để tránh vòng lặp vô tận
+                            await loadSystemData(true); 
+                            return; // Dừng lần render hiện tại (vì data cũ sai ngày)
+                        }
+                        
+                        // Hiển thị thông báo T+0
+                        const elNotice = document.getElementById("allocationNotice");
+                        const elNoticeText = document.getElementById("allocationNoticeText");
+                        if (elNotice && elNoticeText) {
+                            elNotice.style.display = "block";
+                            elNoticeText.innerHTML = `Đã chọn ngày <b>${cashInDateISO.split('-').reverse().join('/')}</b> theo lệnh Nạp gần nhất.`;
+                        }
+                    }
+                }
+                // -----------------------------------------------------------
+
                 renderUserWallet(user, result.data.total_balance_estimate);
                 renderSystemFund(finsight, user);
                 renderBank(bank);
-                renderQueue(result.data.queue); 
+                renderQueue(queue); 
                 renderDailyProfit(result.data.performance);
             }
         } catch (err) {
@@ -54,13 +98,6 @@ document.addEventListener("DOMContentLoaded", () => {
         } finally {
             loadingOverlay.style.display = 'none';
         }
-    }
-
-    // [NEW] Auto reload khi đổi ngày xem
-    if(viewDateInput) {
-        viewDateInput.addEventListener("change", () => {
-            loadSystemData(); // Gọi lại API ngay khi chọn ngày khác
-        });
     }
 
     // --- RENDER HELPERS ---
@@ -75,59 +112,120 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- RENDER SECTIONS ---
 
-    // 1. User Wallet
-    function renderUserWallet(user, totalEst) {
-        if (!user) return;
-        containers.user.innerHTML = `
-            ${createCard('Số dư Ví', totalEst, true)}
-        `;
+
+    // 2. System Fund (4 Ô Vuông - All Black Text)
+function renderSystemFund(sys, user) {
+    if (!sys || !user) return;
+
+    // --- CHUẨN BỊ DỮ LIỆU ---
+
+    // 1. Data Kho Finsight
+    const sysInventory = sys.inventory || [];
+    const totalSysInvValue = sysInventory.reduce((sum, item) => {
+        return sum + (item.giaTaiNgayXem * item.soLuong);
+    }, 0);
+
+    const invRows = sysInventory.map(item => `
+        <tr>
+            <td class="fw-bold text-dark" style="font-size: 0.85rem;">${item.maCD}</td>
+            <td class="text-end text-dark" style="font-size: 0.85rem;">${new Intl.NumberFormat('en-US').format(item.soLuong)}</td>
+            <td class="text-end text-dark" style="font-size: 0.8rem;">${formatMoney(item.giaTaiNgayXem)}</td>
+        </tr>
+    `).join('');
+
+    // 2. Data Tài sản User
+    const totalUserAssetValue = user.total_asset_value || 0;
+    let userRows = '';
+    if (user.assets && user.assets.length > 0) {
+        userRows = user.assets.map(a => `
+            <tr>
+                <td class="fw-bold text-dark" style="font-size: 0.85rem;">${a.maCD}</td>
+                <td class="text-end text-dark" style="font-size: 0.85rem;">${a.soLuong}</td>
+            </tr>`).join('');
     }
+    const userTableContent = userRows.length > 0 ? userRows : '<tr><td colspan="2" class="text-center small text-dark">Không có tài sản</td></tr>';
 
-    // 2. System Fund (Kèm Bảng)
-    function renderSystemFund(sys, user) {
-        if (!sys || !user) return;
-        
-        const totalUserAssetValue = user.total_asset_value || 0;
-        let assetDetailsHtml = '';
 
-        // Bảng danh sách CD
-        if (user.assets && user.assets.length > 0) {
-            const rows = user.assets.map(a => `
-                <tr>
-                    <td class="fw-bold">${a.maCD}</td>
-                    <td class="text-end">${a.soLuong}</td>
-                </tr>`).join('');
-            
-            assetDetailsHtml = `
-                <div class="mt-3 pt-2 border-top">
-                    <div class="stat-label mb-2">Danh mục chi tiết</div>
-                    <div style="max-height: 200px; overflow-y: auto;">
-                        <table class="table table-sm table-borderless table-minimal mb-0">
-                            <thead><tr><th>Mã</th><th class="text-end">SL</th></tr></thead>
-                            <tbody>${rows}</tbody>
-                        </table>
-                    </div>
-                </div>`;
-        } else {
-            assetDetailsHtml = '<div class="mt-3 pt-2 border-top small text-muted">Không có tài sản CD</div>';
-        }
+    // --- TẠO HTML CÁC CARD (Sử dụng text-dark cho màu đen) ---
 
-        containers.system.innerHTML = `
-            ${createCard('Tiền Finsight', sys.tienMatFinSight, true)}
-            ${createCard('Tiền User', user.cash, true)}
-            
-            <div class="stat-card" style="grid-column: 1 / -1;">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <div class="stat-label">Tài sản CD của User</div>
-                        <div class="stat-value" style="color: var(--accent-color);">${formatMoney(totalUserAssetValue)}</div>
-                    </div>
+    // Card 1: Tiền Finsight (Hàng 1 - Trái)
+    // Lưu ý: Tôi viết HTML trực tiếp thay vì createCard để kiểm soát màu sắc tuyệt đối
+    const cardFinsightCash = `
+        <div class="stat-card">
+            <div class="stat-label text-dark fw-bold">Tiền Finsight</div>
+            <div class="stat-value text-dark">${formatMoney(sys.tienMatFinSight)}</div>
+        </div>
+    `;
+
+    // Card 2: Tài sản Finsight (Hàng 1 - Phải)
+    const cardFinsightAssets = `
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-label text-dark fw-bold">Tài sản Finsight</div>
+                    <div class="stat-value text-dark">${formatMoney(totalSysInvValue)}</div>
                 </div>
-                ${assetDetailsHtml}
             </div>
-        `;
-    }
+            
+            <div class="mt-3 pt-2 border-top" style="max-height: 120px; overflow-y: auto;">
+                <table class="table table-sm table-borderless table-minimal mb-0">
+                    <thead class="text-dark small border-bottom">
+                        <tr>
+                            <th>Mã</th>
+                            <th class="text-end">SL</th>
+                            <th class="text-end">Giá(T)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${invRows.length > 0 ? invRows : '<tr><td colspan="3" class="text-center small text-dark">Kho trống</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
 
+    // Card 3: Tiền User (Hàng 2 - Trái)
+    const cardUserCash = `
+        <div class="stat-card">
+            <div class="stat-label text-dark fw-bold">Tiền User</div>
+            <div class="stat-value text-dark">${formatMoney(user.cash)}</div>
+        </div>
+    `;
+
+    // Card 4: Tài sản User (Hàng 2 - Phải)
+    // Đã xóa style="grid-column: 1 / -1;" để nó thành ô vuông nhỏ
+    const cardUserAssets = `
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-label text-dark fw-bold">Tài sản User</div>
+                    <div class="stat-value text-dark">${formatMoney(totalUserAssetValue)}</div>
+                </div>
+            </div>
+            
+            <div class="mt-3 pt-2 border-top" style="max-height: 120px; overflow-y: auto;">
+                <table class="table table-sm table-borderless table-minimal mb-0">
+                    <thead class="text-dark small border-bottom">
+                        <tr>
+                            <th>Mã</th>
+                            <th class="text-end">SL</th>
+                        </tr>
+                    </thead>
+                    <tbody>${userTableContent}</tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    // --- RENDER RA GIAO DIỆN ---
+    // Thứ tự: Hàng 1 (FS Cash, FS Asset) -> Hàng 2 (User Cash, User Asset)
+    containers.system.innerHTML = `
+        ${cardFinsightCash}
+        ${cardFinsightAssets}
+        ${cardUserCash}
+        ${cardUserAssets}
+    `;
+}
     // 3. Bank NHLK
     function renderBank(bank) {
         if (!bank) return;
@@ -319,51 +417,120 @@ document.addEventListener("DOMContentLoaded", () => {
 
 }
 
+    // // 1. User Wallet
+    // function renderUserWallet(user, totalEst) {
+    //     if (!user) return;
+    //     containers.user.innerHTML = `
+    //         ${createCard('Số dư Ví', totalEst, true)}
+    //     `;
+    // }
 
-    function renderDailyProfit(perfData) {
-        // 1. Lấy Element
-        const pnlValueEl = document.getElementById('pnl-value');
-        const pnlTimeEl = document.getElementById('pnl-time');
-        const pnlBarEl = document.getElementById('pnl-bar');
+    // function renderDailyProfit(perfData) {
+    //     // 1. Lấy Element
+    //     const pnlValueEl = document.getElementById('pnl-value');
+    //     const pnlTimeEl = document.getElementById('pnl-time');
+    //     const pnlBarEl = document.getElementById('pnl-bar');
 
-        // Guard clause: Nếu không có HTML thì dừng
-        if (!pnlValueEl) return;
+    //     // Guard clause: Nếu không có HTML thì dừng
+    //     if (!pnlValueEl) return;
 
-        // 2. Xử lý dữ liệu an toàn
-        const profit = (perfData && perfData.profit_today) ? perfData.profit_today : 0;
-        const lastUpdated = (perfData && perfData.last_updated) ? perfData.last_updated : '--:--';
+    //     // 2. Xử lý dữ liệu an toàn
+    //     const profit = (perfData && perfData.profit_today) ? perfData.profit_today : 0;
+    //     const lastUpdated = (perfData && perfData.last_updated) ? perfData.last_updated : '--:--';
 
-        // 3. Logic hiển thị (Màu sắc & Dấu)
-        const isPositive = profit >= 0;
-        const isZero = profit === 0;
+    //     // 3. Logic hiển thị (Màu sắc & Dấu)
+    //     const isPositive = profit >= 0;
+    //     const isZero = profit === 0;
 
-        // Xác định class màu
-        let colorClass = 'text-success'; 
-        let barColor = '#10b981'; // Xanh
-        let sign = '+';
+    //     // Xác định class màu
+    //     let colorClass = 'text-success'; 
+    //     let barColor = '#10b981'; // Xanh
+    //     let sign = '+';
 
-        if (profit < 0) {
-            colorClass = 'text-danger';
-            barColor = '#ef4444'; // Đỏ
-            sign = ''; // Số âm tự có dấu trừ (formatMoney sẽ tự thêm)
-        } else if (isZero) {
-            colorClass = 'text-muted'; // Màu xám
-            barColor = '#e9ecef';
-            sign = '';
-        }
+    //     if (profit < 0) {
+    //         colorClass = 'text-danger';
+    //         barColor = '#ef4444'; // Đỏ
+    //         sign = ''; // Số âm tự có dấu trừ (formatMoney sẽ tự thêm)
+    //     } else if (isZero) {
+    //         colorClass = 'text-muted'; // Màu xám
+    //         barColor = '#e9ecef';
+    //         sign = '';
+    //     }
 
-        // 4. Update UI
-        // Reset class cũ và gán class mới
-        pnlValueEl.className = `display-6 fw-bold mb-0 ${colorClass}`;
+    //     // 4. Update UI
+    //     // Reset class cũ và gán class mới
+    //     pnlValueEl.className = `display-6 fw-bold mb-0 ${colorClass}`;
         
-        // [SỬA LỖI TẠI ĐÂY] Đổi formatCurrencyVND thành formatMoney
-        // formatMoney là hàm bạn đã khai báo ở đầu file js
-        pnlValueEl.innerText = `${sign}${formatMoney(profit)}`; 
+    //     // [SỬA LỖI TẠI ĐÂY] Đổi formatCurrencyVND thành formatMoney
+    //     // formatMoney là hàm bạn đã khai báo ở đầu file js
+    //     pnlValueEl.innerText = `${sign}${formatMoney(profit)}`; 
         
-        // Update giờ và thanh màu dưới đáy
-        if (pnlTimeEl) pnlTimeEl.innerText = lastUpdated;
-        if (pnlBarEl) pnlBarEl.style.backgroundColor = barColor;
+    //     // Update giờ và thanh màu dưới đáy
+    //     if (pnlTimeEl) pnlTimeEl.innerText = lastUpdated;
+    //     if (pnlBarEl) pnlBarEl.style.backgroundColor = barColor;
+    // }
+    // 1. User Wallet & Profit Structure (Render khung HTML cho cả 2 thẻ)
+function renderUserWallet(user, totalEst) {
+    if (!user) return;
+    
+    // Card 1: Số dư Ví (Dùng hàm createCard có sẵn)
+    // Giả sử createCard trả về string HTML class="stat-card"
+    const walletCardHtml = createCard('Số dư Ví', totalEst, true);
+
+    // Card 2: Tiền lời hôm nay (Cấu trúc tương tự stat-card để thành ô vuông)
+    const profitCardHtml = `
+        <div class="stat-card">
+            <div class="stat-label text-dark fw-bold">Tiền lời hôm nay</div>
+            <div class="d-flex align-items-center h-100">
+                <div class="stat-value text-success" id="pnl-value">--</div>
+            </div>
+        </div>
+    `;
+
+    containers.user.innerHTML = `
+        ${walletCardHtml}
+        ${profitCardHtml}
+    `;
+}
+
+// 2. Daily Profit Logic (Update dữ liệu vào ô vuông thứ 2)
+function renderDailyProfit(perfData) {
+    // 1. Lấy Element (Đã được tạo ra bởi hàm renderUserWallet ở trên)
+    const pnlValueEl = document.getElementById('pnl-value');
+
+    // Guard clause: Nếu chưa render HTML thì dừng
+    if (!pnlValueEl) return;
+
+    // 2. Xử lý dữ liệu an toàn
+    const profit = (perfData && perfData.profit_today) ? perfData.profit_today : 0;
+    
+    // 3. Logic hiển thị (Màu sắc & Dấu)
+    const isZero = profit === 0;
+
+    // Mặc định là màu xanh lá (text-success) như yêu cầu
+    let colorClass = 'text-success'; 
+    let barColor = '#10b981'; // Xanh
+    let sign = '+';
+
+    if (profit < 0) {
+        colorClass = 'text-danger'; // Lỗ thì vẫn nên đỏ để cảnh báo
+        barColor = '#ef4444'; // Đỏ
+        sign = ''; // Số âm tự có dấu trừ
+    } else if (isZero) {
+        colorClass = 'text-success'; // 0 đồng cũng cho xanh theo ý bạn (hoặc text-muted nếu muốn xám)
+        barColor = '#10b981';
+        sign = '';
     }
+
+    // 4. Update UI
+    // Reset class cũ và gán class mới
+    pnlValueEl.className = `stat-value ${colorClass}`;
+    
+    // Format tiền
+    pnlValueEl.innerText = `${sign}${formatMoney(profit)}`; 
+    
+   
+}
 
 
     // --- BUTTON ACTIONS ---

@@ -387,19 +387,18 @@ class SystemService:
             
             # Ưu tiên lấy mã từ thongTinChung, nếu không có thì thử lấy trực tiếp
             ma_cd = tt_chung.get('maDoiChieu') or cd.get('maCD')
-            print("Mã CD finsight là", ma_cd)
             # Lấy số lượng từ thongTinNhapKho
             try:
-                so_luong = int(tt_nhap_kho.get('soLuong', 0))
+                so_luong = int(tt_chung.get('CDKhaDung', 0))
             except:
                 so_luong = int(cd.get('soLuong', 0))
             
             # Lấy giá vốn (đơn giá mua vào)
             try:
-                gia_von = float(tt_nhap_kho.get('donGia', 0))
+                gia_von = float(tt_nhap_kho.get('menhGia', 0))
             except:
-                gia_von = float(cd.get('donGiaVon', 0))
-
+                gia_von = float(cd.get('menhGia', 0))
+            print(so_luong)
             # Skip nếu hết hàng hoặc dữ liệu lỗi
             if not ma_cd or so_luong <= 0: 
                 continue
