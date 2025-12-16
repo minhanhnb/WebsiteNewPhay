@@ -8,15 +8,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     const maDoiChieu = document.body.getAttribute("data-ma");
     const elDate = document.getElementById("simulationDate");
     const elRate = document.getElementById("userInterestRate");
+
     const elPriceYield = document.getElementById("displayPriceYield");
     const elPriceCustom = document.getElementById("displayPriceCustom");
     const elMarketValue = document.getElementById("displayMarketValue");
     const btnReset = document.getElementById("btnReset");
-    // --- ELEMENTS MỚI CHO TEST CASE ---
-    const elSimRateCurrent = document.getElementById("simRateCurrent");
-    const elSimRateNew = document.getElementById("simRateNew");
-    const btnRunTest = document.getElementById("btnRunTest");
-    const btnApplyRate = document.getElementById("btnApplyRate");
+    // // --- ELEMENTS MỚI CHO TEST CASE ---
+    // const elSimRateCurrent = document.getElementById("simRateCurrent");
+    // const elSimRateNew = document.getElementById("simRateNew");
+    // const btnRunTest = document.getElementById("btnRunTest");
+    // const btnApplyRate = document.getElementById("btnApplyRate");
 
     // Các ô hiển thị trong bảng
     const tdYieldA = document.getElementById("tdYieldA");
@@ -25,6 +26,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const tdCustomA = document.getElementById("tdCustomA");
     const tdCustomB = document.getElementById("tdCustomB");
     const tdCustomDiff = document.getElementById("tdCustomDiff");
+    
    
 // --- MAIN FLOW ---
     try {
@@ -70,10 +72,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         const today = new Date();
         elDate.value = today.toISOString().split('T')[0];
         
-        const defRateRaw = cdData.thongTinLaiSuat?.laiSuat;
-        const defRate = parseMoneyVN(defRateRaw) || 5.0; 
-        elRate.value = defRate;
-        elSimRateCurrent.value = defRate; // NEW: Đồng bộ lãi suất ban đầu
+        
+        elRate.value = 4.0;
 
         calculateAndDraw();
 
@@ -94,13 +94,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Khi lãi suất chính thay đổi -> Cập nhật luôn vào ô "Lãi suất hiện tại" của Test Case
     elRate.addEventListener("input", () => {
         calculateAndDraw(); // Hàm cũ
-        elSimRateCurrent.value = elRate.value; // Sync xuống dưới
+        // elSimRateCurrent.value = elRate.value; // Sync xuống dưới
     });
 
-    // Nút chạy Test Case
-    btnRunTest.addEventListener("click", () => {
-        runSimulationTestCase();
-    });
+    // // Nút chạy Test Case
+    // btnRunTest.addEventListener("click", () => {
+    //     runSimulationTestCase();
+    // });
 
     // Nút Áp dụng (Nếu user thấy lãi mới ngon thì bấm nút này để update lên UI chính)
     btnApplyRate.addEventListener("click", () => {
@@ -138,6 +138,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         btnApplyRate.style.display = 'inline-block';
     }
+
+
      function calculateMarketValue(M, r_CD, currDate, issueDate) {
         // Market Value = Mệnh giá + Mệnh giá * Lãi suất CD * (Ngày hiện tại - Ngày phát hành) / 365
         const daysPassed = (currDate - issueDate) / (1000 * 60 * 60 * 24);
@@ -466,7 +468,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 labels: labels,
                 datasets: [
                     {
-                        label: 'Giá Yield (User Rate)',
+                        label: 'Giá Yield',
                         data: d1,
                         borderColor: 'rgb(255, 99, 132)',
                         borderWidth: 2,
@@ -474,7 +476,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         tension: 0.1
                     },
                     {
-                        label: 'Giá Custom (User Rate)',
+                        label: 'Giá Yield + Khoảng X',
                         data: d2,
                         borderColor: 'rgb(54, 162, 235)',
                         borderWidth: 2,
@@ -482,7 +484,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         tension: 0.1
                     },
                     { // NEW DATASET: Market Value
-                        label: 'Market Value (Book)',
+                        label: 'Market Value',
                         data: d3,
                         borderColor: 'rgb(241, 196, 15)', // Màu vàng
                         backgroundColor: 'rgba(241, 196, 15, 0.2)',
@@ -507,7 +509,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 scales: {
                     y: {
                         ticks: {
-                            callback: (value) => value / 1000000 + ' Triệu'
+                            callback: (value) => formatCurrency(value) 
                         }
                     }
                 }
@@ -535,6 +537,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             element.innerHTML = `<span style="color:#7f8c8d">0 ₫</span>`;
         }
     }
+
+
+    
 });
 
 
