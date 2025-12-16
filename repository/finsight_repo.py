@@ -66,22 +66,51 @@ class FinsightRepository(BaseRepository):
             self.system_doc.set(FinsightSystem(cash=amount_delta).to_dict())
 
     # --- 3. LOGGING (CHỜ SYNC NHLK) ---
-    def add_settlement_log(self, user_id, action_type, amount, details=None):
+    def add_settlement_log(self, user_id, action_type, amount, date, details=None):
         self.log_col.add({
             "user_id": user_id,
             "type": action_type,
             "amount": amount,
             "details": details or {},
             "status": "PENDING",
-            "created_at": firestore.SERVER_TIMESTAMP
+            "created_at": date
         })
 
     def get_pending_logs(self):
-        return self.log_col.where("status", "==", "PENDING").stream()
+        """
+        Lấy danh sách logs trạng thái PENDING.
+        Hàm được viết lại để an toàn với cả DocumentSnapshot (Firestore chuẩn) và Dict (Mocking).
+        """
+        try:
+            # 1. Lấy stream dữ liệu từ Firestore
+            docs = self.log_col.where("status", "==", "PENDING").stream()
+            
+            results = []
+            for doc in docs:
+                data = {}
+                doc_id = "unknown_id"
 
-    def mark_logs_processed(self, log_ids):
-        batch = self.db.batch()
-        for log_id in log_ids:
-            ref = self.log_col.document(log_id)
-            batch.update(ref, {"status": "PROCESSED"})
-        batch.commit()
+                # Cách 1: Kiểm tra nếu là DocumentSnapshot chuẩn (có method to_dict)
+                if hasattr(doc, 'to_dict'):
+                    data = doc.to_dict()
+                    doc_id = doc.id
+                
+                # Cách 2: Kiểm tra nếu là Dictionary (thường gặp khi dùng Mock hoặc một số wrapper)
+                elif isinstance(doc, dict):
+                    data = doc
+                    # Cố gắng tìm ID trong dict
+                    doc_id = data.get('id') or data.get('_id') or 'unknown_id'
+                
+                # Bỏ qua nếu không phải cả 2 loại trên
+                else:
+                    continue
+
+                # Gán ID vào data để Frontend sử dụng
+                data['id'] = doc_id
+                results.append(data)
+                
+            return results
+
+        except Exception as e:
+            print(f"Error getting pending logs: {str(e)}")
+            return []

@@ -62,3 +62,5 @@ def api_sync_bank():
 @system_bp.route("/system/api/reset", methods=["POST"])
 def api_reset_database():
     return controller.reset_database()
+
+

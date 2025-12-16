@@ -11,191 +11,6 @@ class SystemService:
         self.cd_repo = cd_repo
         self.bank_repo = bank_repo
         
-    # def get_full_overview(self, user_id, view_date_str=None):
-    #     """
-    #     Tổng hợp dữ liệu toàn hệ thống tại thời điểm view_date.
-    #     """
-    #     # 1. Xác định ngày định giá (Valuation Date)
-    #     if view_date_str:
-    #         try:
-    #             target_date = datetime.strptime(view_date_str, "%Y-%m-%d").date()
-    #         except ValueError:
-    #             target_date = date.today()
-    #     else:
-    #         target_date = date.today()
-
-    #     # 2. LẤY VÍ USER
-    #     user_wallet = self.finsight_repo.get_user_account(user_id)
-        
-    #     total_asset_value = 0.0
-    #     enriched_assets = []
-
-    #     for asset in user_wallet.assets:
-    #         ma_cd = asset.get('maCD')
-    #         so_luong = int(asset.get('soLuong', 0))
-    #         gia_von = float(asset.get('giaVon', 0))
-            
-    #         cd_info = self.cd_repo.get_cd_by_id(ma_cd)
-            
-    #         current_price = 0
-    #         if cd_info:
-    #             # [UPDATE] Truyền target_date vào hàm tính giá
-    #             current_price = self._calculate_cd_price_dynamic(cd_info, target_date)
-            
-    #         if current_price == 0:
-    #             current_price = gia_von
-
-    #         current_value = current_price * so_luong
-    #         total_asset_value += current_value
-            
-    #         asset_view = asset.copy()
-    #         asset_view['current_price'] = current_price
-    #         asset_view['current_value'] = current_value
-    #         enriched_assets.append(asset_view)
-
-    #     total_net_worth = user_wallet.cash + total_asset_value
-    #     user_data = user_wallet.to_dict()
-    #     user_data['total_net_worth'] = total_net_worth
-    #     user_data['total_asset_value'] = total_asset_value
-    #     user_data['assets'] = enriched_assets
-
-      
-
-    #     # 2. LẤY QUỸ HỆ THỐNG (FINSIGHT INTERNAL)
-    #     system_fund = self.finsight_repo.get_system_account()
-
-    #     # 3. LẤY DỮ LIỆU ĐỐI CHIẾU (NHLK / BANK)
-    #     bank_data = self.bank_repo.get_system_bank()
-
-    #    # 4. LẤY SETTLEMENT QUEUE (PENDING LOGS) ---
-    #     # Để hiển thị lên Dashboard cho Admin xem trước khi bấm Sync
-    #     pending_docs = self.finsight_repo.get_pending_logs()
-    #     queue_list = []
-    #     for doc in pending_docs:
-    #         data = doc.to_dict()
-    #         # Format lại data để trả về FE gọn gàng
-    #         queue_list.append({
-    #             "id": doc.id,
-    #             "type": data.get("type"),
-    #             "amount": data.get("amount", 0),
-    #             "created_at": data.get("created_at") 
-    #         })
-
-    #     return {
-    #         "user": user_data,
-    #         "finsight": system_fund.to_dict(),
-    #         "bank": bank_data.to_dict(),
-    #         "queue": queue_list,
-    #         "total_balance_estimate": total_net_worth,
-    #         "meta": {
-    #             "server_time": datetime.now().isoformat(),
-    #             # [UPDATE] Trả về ngày định giá để FE hiển thị đúng
-    #             "valuation_date": target_date.isoformat() 
-    #         }
-    #     }
-    # def get_full_overview(self, user_id, view_date_str=None):
-    #     """
-    #     [REPLAY MODE - SIMPLIFIED] 
-    #     Tính toán tài sản và lợi nhuận NGÀY (Daily Profit) dựa trên Transaction Log.
-    #     Đã loại bỏ logic tính lãi tháng để tối ưu hiệu năng.
-    #     """
-    #     # 1. Xác định mốc thời gian
-    #     if view_date_str:
-    #         try:
-    #             target_date = datetime.strptime(view_date_str, "%Y-%m-%d").date()
-    #         except ValueError:
-    #             target_date = date.today()
-    #     else:
-    #         target_date = date.today()
-
-    #     # Chỉ cần ngày hôm qua để so sánh giá và tính lãi ngày
-    #     prev_date = target_date - timedelta(days=1)
-
-    #     # 2. Lấy TOÀN BỘ Transaction Log của User đến ngày View
-    #     all_txs = self.transaction_repo.get_all_transactions(user_id, target_date.isoformat())
-
-    #     # 3. Cắt lát dữ liệu (Slicing Transaction List)
-    #     # - List cho ngày View (T) -> Để tính Net Worth hiện tại
-    #     txs_T = all_txs 
-    #     # - List cho ngày hôm qua (T-1) -> Để biết đêm qua user nắm giữ gì (tính lãi ngày)
-    #     txs_Prev = [t for t in all_txs if t['date'] <= prev_date.isoformat()]
-
-    #     # 4. Tái tạo trạng thái (Reconstruct)
-    #     port_T = self._reconstruct_portfolio(txs_T)
-    #     port_Prev = self._reconstruct_portfolio(txs_Prev)
-
-    #     # 5. Tính giá trị tài sản tại ngày View (T) và Daily Profit
-    #     total_asset_value_T = 0.0
-    #     daily_profit = 0.0
-    #     enriched_assets = []
-
-    #     # Duyệt qua các CD user đang có tại ngày T
-    #     for ma_cd, qty_T in port_T['assets'].items():
-    #         if qty_T <= 0: continue
-
-    #         cd_info = self.cd_repo.get_cd_by_id(ma_cd)
-    #         if not cd_info: continue
-
-    #         # A. Giá trị hiện tại (Market Value)
-    #         price_T = self._calculate_cd_price_dynamic(cd_info, target_date)
-    #         val_T = price_T * qty_T
-    #         total_asset_value_T += val_T
-
-    #         # B. Tính lãi ngày (Dựa trên số lượng của NGÀY HÔM QUA)
-    #         # Logic: Lãi chỉ sinh ra từ những CD đã nắm giữ qua đêm.
-    #         # Công thức: (Giá T - Giá T-1) * Số lượng nắm giữ tại T-1
-    #         qty_Prev = port_Prev['assets'].get(ma_cd, 0)
-            
-    #         if qty_Prev > 0:
-    #             price_Prev = self._calculate_cd_price_dynamic(cd_info, prev_date)
-    #             # Chỉ tính chênh lệch khi cả 2 ngày đều có giá (đã phát hành)
-    #             if price_T > 0 and price_Prev > 0:
-    #                 daily_profit += (price_T - price_Prev) * qty_Prev
-
-    #         enriched_assets.append({
-    #             "maCD": ma_cd,
-    #             "soLuong": qty_T,
-    #             "current_price": price_T,
-    #             "current_value": val_T
-    #         })
-
-    #     net_worth_T = port_T['cash'] + total_asset_value_T
-
-    #     # 6. Lấy dữ liệu phụ trợ (System Fund, Bank, Queue) - Giữ nguyên
-    #     system_fund = self.finsight_repo.get_system_account()
-    #     bank_data = self.bank_repo.get_system_bank()
-    #     pending_docs = self.finsight_repo.get_pending_logs()
-    #     queue_list = []
-    #     for doc in pending_docs:
-    #          d = doc.to_dict()
-    #          queue_list.append({
-    #             "id": doc.id, "type": d.get("type"),
-    #             "amount": d.get("amount", 0), "created_at": d.get("created_at")
-    #          })
-
-    #     return {
-    #         "user": {
-    #             "uid": user_id,
-    #             "cash": port_T['cash'],          # Cash tính lại từ log
-    #             "assets": enriched_assets,       # Assets tính lại từ log
-    #             "total_net_worth": net_worth_T,
-    #             "total_asset_value": total_asset_value_T
-    #         },
-    #         "performance": {
-    #             "profit_today": daily_profit,
-    #             "last_updated": datetime.now().strftime("%H:%M:%S")
-    #         },
-    #         "meta": {
-    #             "server_time": datetime.now().isoformat(),
-    #             "valuation_date": target_date.isoformat(),
-    #             "mode": "REPLAY_SIMPLE" 
-    #         },
-    #         "finsight": system_fund.to_dict(),
-    #         "bank": bank_data.to_dict(),
-    #         "queue": queue_list,
-    #         "total_balance_estimate": net_worth_T
-    #     }
-   
 
     def get_full_overview(self, user_id, view_date_str=None):
         """
@@ -290,12 +105,17 @@ class SystemService:
         system_fund = self.finsight_repo.get_system_account()
         bank_data = self.bank_repo.get_system_bank()
         pending_docs = self.finsight_repo.get_pending_logs()
-        
+        processed_inventory = self.get_available_inventory_with_price(view_date_str)
+        print(processed_inventory)
+        finsight_data = system_fund.to_dict()
+        finsight_data['inventory'] = processed_inventory
+        print(finsight_data)
         queue_list = [{
-            "id": doc.id, 
-            "type": doc.to_dict().get("type"),
-            "amount": doc.to_dict().get("amount", 0), 
-            "created_at": doc.to_dict().get("created_at")
+            "id": doc.get("id"),
+            "type": doc.get("type"),
+            "amount": doc.get("amount", 0),
+            "created_at": doc.get("created_at"),
+            "details": doc.get("details", {}) # Quan trọng: Cần lấy thêm details để hiển thị Asset Name ở Frontend
         } for doc in pending_docs]
 
         return {
@@ -304,7 +124,7 @@ class SystemService:
                 "profit_today": daily_profit_total,
                 "last_updated": datetime.now().strftime("%H:%M:%S")
             },
-            "finsight": system_fund.to_dict(),
+            "finsight": finsight_data,
             "bank": bank_data.to_dict(),
             "queue": queue_list,
             "total_balance_estimate": total_net_worth,
@@ -344,7 +164,7 @@ class SystemService:
         self.finsight_repo.update_user_cash(user_id, amount)
         
         # 2. Log System (Chờ Sync)
-        self.finsight_repo.add_settlement_log(user_id, "CASH_IN", amount)
+        self.finsight_repo.add_settlement_log(user_id, "CASH_IN", amount, date_str)
         
         # 3. Log History
         self._log_transaction(user_id, "NAP", amount, date_str, "Nạp vào Finsight Cash")
@@ -438,7 +258,7 @@ class SystemService:
             self.finsight_repo.update_system_cash(total_cost)
             # 3. Log 1: Ghi nhận tiền đã được trả
             self.finsight_repo.add_settlement_log(
-                user_id, "ALLOCATION_CASH_PAID", total_cost
+                user_id, "ALLOCATION_CASH_PAID", total_cost, date_str
             )
 
             # =======================================================
@@ -456,6 +276,7 @@ class SystemService:
                 user_id, 
                 "ALLOCATION_ASSET_DELIVERED", 
                 total_cost, 
+                date_str,
                 {"assets": db_record_list} # Lưu chi tiết asset đã giao
             )
 
@@ -480,7 +301,7 @@ class SystemService:
         # A. Đủ Cash
         if current_cash >= amount:
             self.finsight_repo.update_user_cash(user_id, -amount)
-            self.finsight_repo.add_settlement_log(user_id, "CASH_OUT", amount)
+            self.finsight_repo.add_settlement_log(user_id, "CASH_OUT", amount, date_str)
             self._log_transaction(user_id, "RUT", amount, date_str, "Rút từ Cash Remainder")
             return {"status": "success", "message": "Rút tiền thành công"}
 
@@ -532,12 +353,73 @@ class SystemService:
         self.finsight_repo.update_system_cash(-cash_raised)
 
         # 4. Log Sync
-        self.finsight_repo.add_settlement_log(user_id, "LIQUIDATE_CD", cash_raised, {"sold": assets_to_sell})
-        self.finsight_repo.add_settlement_log(user_id, "CASH_OUT", amount)
+        self.finsight_repo.add_settlement_log(user_id, "LIQUIDATE_CD", cash_raised,date_str, {"sold": assets_to_sell})
+        self.finsight_repo.add_settlement_log(user_id, "CASH_OUT", amount, date_str)
         
         self._log_transaction(user_id, "RUT", amount, date_str, f"Rút (Bán {len(assets_to_sell)} CD)")
         return {"status": "success", "message": "Rút tiền & Thanh khoản thành công"}
+    # --- 5. LẤY KHO FINSIGHT KÈM GIÁ (Dùng cho UI "Tài sản Finsight") ---
+    def get_available_inventory_with_price(self, view_date_str=None):
+        """
+        Lấy danh sách CD từ CD Repo, coi đó là kho hàng khả dụng,
+        và tính giá trị thực tế tại ngày xem.
+        """
+        # 1. Parse ngày xem
+        if view_date_str:
+            try:
+                target_date = datetime.strptime(view_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                target_date = date.today()
+        else:
+            target_date = date.today()
 
+        # 2. [THEO YÊU CẦU] Lấy trực tiếp từ CD Repo
+        # Hàm này trả về list các dict chứa thongTinChung, thongTinLaiSuat...
+        inventory_list = self.cd_repo.get_all_cd()
+        
+        results = []
+        
+        for cd in inventory_list:
+            # --- TRÍCH XUẤT DỮ LIỆU TỪ CẤU TRÚC CD ---
+            # Vì cấu trúc CD thường chia thành các nhóm thông tin, ta cần lấy đúng chỗ
+            tt_chung = cd.get('thongTinChung', {})
+            tt_nhap_kho = cd.get('thongTinNhapKho', {})
+            
+            # Ưu tiên lấy mã từ thongTinChung, nếu không có thì thử lấy trực tiếp
+            ma_cd = tt_chung.get('maDoiChieu') or cd.get('maCD')
+            print("Mã CD finsight là", ma_cd)
+            # Lấy số lượng từ thongTinNhapKho
+            try:
+                so_luong = int(tt_nhap_kho.get('soLuong', 0))
+            except:
+                so_luong = int(cd.get('soLuong', 0))
+            
+            # Lấy giá vốn (đơn giá mua vào)
+            try:
+                gia_von = float(tt_nhap_kho.get('donGia', 0))
+            except:
+                gia_von = float(cd.get('donGiaVon', 0))
+
+            # Skip nếu hết hàng hoặc dữ liệu lỗi
+            if not ma_cd or so_luong <= 0: 
+                continue
+            
+            # 3. Tận dụng hàm tính giá CÓ SẴN (truyền nguyên cục cd vào)
+            price_at_date = self._calculate_cd_price_dynamic(cd, target_date)
+            
+            # Fallback: Nếu tính ra 0 (vd chưa đến ngày phát hành), dùng giá vốn
+            if price_at_date == 0:
+                price_at_date = gia_von
+            print("giá", price_at_date)
+            results.append({
+                "maCD": ma_cd,
+                "soLuong": so_luong,
+                "giaTaiNgayXem": price_at_date,
+                "khuVuc": "Kho CD (System)" 
+            })
+            print(results)
+            
+        return results
     def reset_database(self):
         """
         DANGER: Xóa toàn bộ dữ liệu trong các Collection của hệ thống.

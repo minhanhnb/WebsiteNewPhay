@@ -1,15 +1,20 @@
 document.addEventListener("DOMContentLoaded", () => {
     // --- 1. CONFIG & ELEMENTS ---
+    const defaultDateISO = "2025-01-01"; 
     const elTotal = document.getElementById("totalBalance");
     const elTableBody = document.getElementById("historyBody");
     const elViewDate = document.getElementById("viewDate");
     const form = document.getElementById("transForm");
     
     // Default Date
-    const todayStr = new Date().toISOString().split('T')[0];
     const transDateInput = document.getElementById("transDate");
-    if (transDateInput) transDateInput.value = todayStr;
-    if (elViewDate) elViewDate.value = todayStr;
+    
+    if (elViewDate) {
+            elViewDate.value = defaultDateISO;
+            }
+    if (transDateInput) {
+        transDateInput.value = defaultDateISO;
+            }
     
     const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
@@ -66,12 +71,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 <td>${item.date_trans}</td>
                 <td><span class="${cls}">${label}</span></td>
                 <td class="${cls} fw-bold">${sign} ${formatMoney(item.amount)}</td>
-                <td class="text-muted small">${item.note || ""}</td>
                 <td class="text-center">
                     <button class="btn-delete" data-id="${transId}" 
                             style="border:none; background:transparent; color:#e74c3c; cursor:pointer; font-size: 1.1rem;"
                             title="Xóa giao dịch này">
-                        <i class="fas fa-trash-alt"></i> 🗑
+                        <i class="fas fa-trash-alt"></i> 
                     </button>
                 </td>
             `;
@@ -108,6 +112,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 await loadData();
             } else {
                 alert("❌ " + (result.message || "Lỗi xóa giao dịch"));
+                await loadData();
             }
         } catch (err) {
             console.error(err);
@@ -115,13 +120,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // --- 3. SUBMIT FORM (NẠP/RÚT) ---
+
     // --- 3. SUBMIT FORM (NẠP/RÚT) ---
     if (form) {
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
             
-            // ... (Phần lấy dữ liệu input giữ nguyên) ...
             const actionInput = document.querySelector('input[name="action"]:checked');
             if (!actionInput) { alert("Vui lòng chọn hành động!"); return; }
             
@@ -143,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 action_type: action, 
                 amount: amount, 
                 date_trans: date_trans, 
-                note: document.getElementById("transNote").value,
+                note: "",
                 user_id: "user_default"
             };
 
@@ -199,6 +203,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (val) e.target.value = new Intl.NumberFormat('vi-VN').format(parseInt(val));
         });
     }
+ 
+    
+
 
     // --- 4. INIT ---
     loadData();

@@ -31,6 +31,9 @@ def render_detail_page(maDoiChieu):
 @cd_bp.route("/cd/sync-daily-price", methods=["POST"])
 def sync_daily_price_route():
     return controller.sync_daily_price()
+
+
+
 # @cd_manage_bp.route("/cd-manage/add-cd", methods=["POST"])
 # def add_cd():
 #     data = request.form  # Lấy dữ liệu từ form
