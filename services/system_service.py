@@ -387,18 +387,19 @@ class SystemService:
             
             # Ưu tiên lấy mã từ thongTinChung, nếu không có thì thử lấy trực tiếp
             ma_cd = tt_chung.get('maDoiChieu') or cd.get('maCD')
+            print("Mã CD finsight là", ma_cd)
             # Lấy số lượng từ thongTinNhapKho
             try:
                 so_luong = int(tt_chung.get('CDKhaDung', 0))
             except:
-                so_luong = int(cd.get('soLuong', 0))
+                so_luong = int(cd.get('CDKhaDung', 0))
             
             # Lấy giá vốn (đơn giá mua vào)
             try:
-                gia_von = float(tt_nhap_kho.get('menhGia', 0))
+                gia_von = float(tt_chung.get('menhGia', 0))
             except:
                 gia_von = float(cd.get('menhGia', 0))
-            print(so_luong)
+
             # Skip nếu hết hàng hoặc dữ liệu lỗi
             if not ma_cd or so_luong <= 0: 
                 continue
@@ -550,45 +551,148 @@ class SystemService:
                         f"- Assets Updated: {len(asset_changes_map)} mã")
         }
     # ... Helper Functions cũ (tính giá, log trans...) giữ nguyên ...
-    def _calculate_cd_price_dynamic(self, cd, date):
-        # (Copy y nguyên hàm cũ)
+    def _calculate_cd_price_dynamic(self, cd, view_date):
         try:
+            # 1. Parse dữ liệu đầu vào
             c1 = cd.get("thongTinChung", {})
             c2 = cd.get("thongTinLaiSuat", {})
-            menh_gia = float(str(c1.get("menhGia", 0)).replace('.', '').replace(',', '.'))
+            
+            # Xử lý mệnh giá (bỏ dấu chấm phân cách ngàn, thay phẩy decimal thành chấm)
+            menh_gia_str = str(c1.get("menhGia", 0)).replace('.', '').replace(',', '.')
+            menh_gia = float(menh_gia_str)
+
             def parse_d(d_str):
                 try: return datetime.strptime(d_str, "%Y-%m-%d").date()
                 except: return None
+
             ngay_ph = parse_d(c1.get("ngayPhatHanh"))
             ngay_dh = parse_d(c1.get("ngayDaoHan"))
-            lai_suat_cd = float(str(c2.get("laiSuat", 0)).replace(',', '.')) / 100
+            
+            # Xử lý lãi suất (ví dụ 8,5 -> 8.5)
+            lai_suat_str = str(c2.get("laiSuat", 0)).replace(',', '.')
+            lai_suat_cd = float(lai_suat_str) / 100.0
+            
             r_user = USER_INTEREST_RATE / 100.0
             tan_suat = c2.get("tanSuatTraLai", "Cuối kỳ")
-            if not ngay_ph or not ngay_dh or date < ngay_ph: return 0.0 
-            first_next = self._get_next_coupon_date(ngay_ph, ngay_dh, tan_suat, ngay_ph)
-            base = self._calculate_yield_formula(menh_gia, lai_suat_cd, r_user, first_next, ngay_ph, ngay_ph, ngay_dh)
-            days = (date - ngay_ph).days
-            return round(base + (base * r_user * days) / 365, 2)
-        except: return 0.0
 
-    def _calculate_yield_formula(self, M, r_CD, r_User, next_date, curr_date, issue_date, maturity_date):
-        if curr_date >= maturity_date: return M + (M * r_CD * (maturity_date - issue_date).days / 365)
-        fv = M + (M * r_CD * (maturity_date - issue_date).days / 365)
-        days = max(0, (next_date - curr_date).days)
-        return fv / (1 + (r_User * days) / 365)
+            # Validation
+            if not ngay_ph or not ngay_dh: return 0.0
+            if view_date < ngay_ph: return 0.0  # Chưa phát hành thì giá = 0 (hoặc = giá vốn tuỳ logic)
 
+            # -----------------------------------------------------------
+            # [LOGIC MỚI] TÍNH GIÁ THEO KỲ (RESET SAU MỖI LẦN TRẢ LÃI)
+            # -----------------------------------------------------------
+
+            # 1. Tìm ngày trả lãi gần nhất trước đó (Last Coupon Date)
+            last_coupon = self._get_last_coupon_date(ngay_ph, ngay_dh, tan_suat, view_date)
+
+            # 2. Tính giá gốc (Base Price) tại đầu kỳ này
+            # Để tính Base, ta cần Next Coupon của cái Last Coupon đó
+            next_coupon_for_base = self._get_next_coupon_date(ngay_ph, ngay_dh, tan_suat, last_coupon)
+            
+            price_base = self._calculate_yield_formula(
+                menh_gia, lai_suat_cd, r_user, 
+                next_coupon_for_base, last_coupon, # curr_date ở đây là đầu kỳ (last_coupon)
+                ngay_ph, ngay_dh, tan_suat
+            )
+
+            # 3. Tính số ngày nắm giữ trong kỳ này
+            days_passed = (view_date - last_coupon).days
+            
+            # 4. Công thức cộng dồn lãi (Custom Price)
+            # Giá = Giá Gốc + (Giá Gốc * R_User * Số ngày / 365)
+            final_price = price_base + (price_base * r_user * days_passed) / 365.0
+
+            return round(final_price, 2)
+
+        except Exception as e:
+            print(f"Error calc price: {e}")
+            return 0.0
+
+    def _calculate_yield_formula(self, M, r_CD, r_User, next_date, curr_date, issue_date, maturity_date, freq_str):
+        # 1. Xử lý trường hợp Đáo hạn
+        if curr_date >= maturity_date:
+            # Nếu trả cuối kỳ: Nhận Gốc + Lãi toàn bộ thời gian
+            if "cuối kỳ" in (freq_str or "").lower():
+                total_days = (maturity_date - issue_date).days
+                return M + (M * r_CD * total_days / 365.0)
+            else:
+                # Nếu trả định kỳ: Nhận Gốc + Lãi của kỳ cuối cùng
+                last_date = self._get_last_coupon_date(issue_date, maturity_date, freq_str, maturity_date - timedelta(days=1))
+                days_in_period = (maturity_date - last_date).days
+                return M + (M * r_CD * days_in_period / 365.0)
+
+        # 2. Tính dòng tiền tương lai (Future Value - Tử số)
+        future_value = 0.0
+        
+        if "cuối kỳ" in (freq_str or "").lower():
+            # Cuối kỳ: FV = Gốc + Tổng lãi tích luỹ
+            total_days = (maturity_date - issue_date).days
+            total_interest = M * r_CD * (total_days / 365.0)
+            future_value = M + total_interest
+        else:
+            # Định kỳ: FV = Gốc + Coupon của kỳ này
+            # Cần tính xem kỳ này dài bao nhiêu ngày
+            # Note: next_date ở đây chính là ngày trả lãi sắp tới
+            last_date = self._get_last_coupon_date(issue_date, maturity_date, freq_str, curr_date)
+            days_in_period = (next_date - last_date).days
+            coupon_payment = M * r_CD * (days_in_period / 365.0)
+            
+            future_value = M + coupon_payment
+
+        # 3. Chiết khấu về hiện tại (Mẫu số)
+        days_to_discount = (next_date - curr_date).days
+        if days_to_discount < 0: days_to_discount = 0
+        
+        denominator = 1 + (r_User * days_to_discount) / 365.0
+        
+        return future_value / denominator
+
+    # --- HELPER: TÌM NGÀY TRẢ LÃI KẾ TIẾP ( > CURR ) ---
     def _get_next_coupon_date(self, start, end, freq, curr):
         s = (freq or "").lower()
         if "cuối kỳ" in s: return end
+        
         months = 12
-        if "3 tháng" in s: months = 3
-        elif "6 tháng" in s: months = 6
-        elif "1 tháng" in s: months = 1
+        if "3 tháng" in s or "theo quý" in s: months = 3
+        elif "6 tháng" in s or "bán niên" in s: months = 6
+        elif "1 tháng" in s or "hàng tháng" in s: months = 1
+        elif "hàng năm" in s or "1 năm" in s: months = 12
+        
         d = start
-        while d <= curr:
+        limit = 0
+        while d <= curr and limit < 500:
             d = d + relativedelta(months=months)
             if d > end: return end
+            limit += 1
         return d
+
+    # --- HELPER MỚI: TÌM NGÀY TRẢ LÃI GẦN NHẤT ( <= CURR ) ---
+    def _get_last_coupon_date(self, start, end, freq, curr):
+        s = (freq or "").lower()
+        # Nếu trả cuối kỳ, ngày bắt đầu tính lãi luôn là ngày phát hành
+        if "cuối kỳ" in s: return start
+        
+        months = 12
+        if "3 tháng" in s or "theo quý" in s: months = 3
+        elif "6 tháng" in s or "bán niên" in s: months = 6
+        elif "1 tháng" in s or "hàng tháng" in s: months = 1
+        elif "hàng năm" in s or "1 năm" in s: months = 12
+        
+        d = start
+        prev = start
+        limit = 0
+        
+        while d <= curr and limit < 500:
+            prev = d # Lưu lại ngày trước khi cộng
+            d = d + relativedelta(months=months)
+            
+            # Nếu cộng xong vượt quá ngày đáo hạn
+            if end and d > end:
+                break
+            limit += 1
+            
+        return prev
 
     def _log_transaction(self, uid, action, amt, date, note):
         from models.transaction import Transaction
