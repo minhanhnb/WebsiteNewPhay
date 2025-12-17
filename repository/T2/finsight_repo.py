@@ -7,9 +7,9 @@ class FinsightRepository2(BaseRepository):
         # BaseRepo init collection gốc (không quan trọng lắm vì ta dùng sub-collections)
         super().__init__('finsight_data')
         self.db = firestore.client()
-        self.user_col = self.db.collection('finsight_users')     # Chứa User
-        self.system_doc = self.db.collection('finsight_system').document('general') # Chứa FS Account
-        self.log_col = self.db.collection('settlement_queue')    # Chứa Log chờ Sync
+        self.user_col = self.db.collection('finsight2_users')     # Chứa User
+        self.system_doc = self.db.collection('finsight2_system').document('general') # Chứa FS Account
+        self.log_col = self.db.collection('settlement2_queue')    # Chứa Log chờ Sync
 
     # --- 1. QUẢN LÝ USER ACCOUNT ---
     def get_user_account(self, user_id):

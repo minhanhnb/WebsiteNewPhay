@@ -15,9 +15,10 @@ class TransactionController:
 
     def submit_transaction(self):
         try:
+            print("Đang vào được controller")
             data = request.json
             result = self.service.add_transaction(data)
-            
+            print(result)
             
             if result.get("status") == "success":
                 return jsonify(result), 200

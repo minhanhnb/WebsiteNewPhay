@@ -3,9 +3,12 @@ from dateutil.relativedelta import relativedelta
 from config import USER_INTEREST_RATE
 from firebase_admin import firestore
 import math 
+from models.T2.transaction import Transaction2
 
-class SystemService:
-    def __init__(self, finsight_repo, transaction_repo, cd_repo, bank_repo):
+
+class SystemService2:
+    def __init__(self, drawer_repo, finsight_repo, transaction_repo, cd_repo, bank_repo):
+        self.drawer_repo = drawer_repo
         self.finsight_repo = finsight_repo
         self.transaction_repo = transaction_repo
         self.cd_repo = cd_repo
@@ -25,89 +28,28 @@ class SystemService:
                 target_date = date.today()
         else:
             target_date = date.today()
-
-        prev_date = target_date - timedelta(days=1)
-
         # 2. LẤY VÍ USER
-        user_wallet = self.finsight_repo.get_user_account(user_id)
+        user_wallet = self.drawer_repo.get_user_account(user_id)
         
-        total_asset_value = 0.0
         daily_profit_total = 0.0
-        enriched_assets = []
+        
 
-        # 3. DUYỆT DANH MỤC
-        for asset in user_wallet.assets:
-            ma_cd = asset.get('maCD')
-            so_luong = int(asset.get('soLuong', 0))
-            
-            # [NEW] Lấy ngày mua của tài sản để check logic
-            # Giả sử DB lưu trường 'created_at' dạng string ISO hoặc date object
-            buy_date_raw = asset.get('ngayMua') 
-            asset_buy_date = None
-            
-            if buy_date_raw:
-                if isinstance(buy_date_raw, str):
-                    # Cắt chuỗi lấy YYYY-MM-DD nếu có giờ phút
-                    try:
-                        asset_buy_date = datetime.strptime(buy_date_raw[:10], "%Y-%m-%d").date()
-                    except:
-                        asset_buy_date = target_date # Fallback nếu lỗi date
-                elif isinstance(buy_date_raw, (datetime, date)):
-                    asset_buy_date = buy_date_raw if isinstance(buy_date_raw, date) else buy_date_raw.date()
-
-            if so_luong <= 0: continue
-
-            cd_info = self.cd_repo.get_cd_by_id(ma_cd)
-            if not cd_info: continue
-            
-            # --- TÍNH GIÁ ---
-            price_T = self._calculate_cd_price_dynamic(cd_info, target_date)
-            price_Prev = self._calculate_cd_price_dynamic(cd_info, prev_date)
-            
-            gia_von = float(asset.get('giaVon', 0))
-            if price_T == 0: price_T = gia_von
-            if price_Prev == 0: price_Prev = gia_von
-
-            current_value = price_T * so_luong
-            total_asset_value += current_value
-
-            # --- [LOGIC QUAN TRỌNG ĐÃ SỬA] ---
-            # Chỉ tính lãi so với hôm qua NẾU tài sản đã tồn tại từ trước hôm nay.
-            # Nếu mới mua hôm nay (Buy Date >= Target Date), lãi ngày = 0 (hoặc chênh lệch giá khớp lệnh vs giá thị trường - ở đây ta coi như bằng 0).
-            
-            item_daily_profit = 0.0
-            
-            if asset_buy_date and asset_buy_date >= target_date:
-                # Trường hợp mới mua hôm nay -> Chưa có lãi qua đêm
-                item_daily_profit = 0.0
-            else:
-                # Trường hợp đã giữ qua đêm -> Tính chênh lệch giá
-                item_daily_profit = (price_T - price_Prev) * so_luong
-
-            daily_profit_total += item_daily_profit
-            
-            asset_view = asset.copy()
-            asset_view.update({
-                'current_price': price_T,
-                'current_value': current_value,
-                'daily_profit': item_daily_profit
-            })
-            enriched_assets.append(asset_view)
+      
 
         # 4. TỔNG HỢP (Giữ nguyên)
-        total_net_worth = user_wallet.cash + total_asset_value
-        
+        total_net_worth = user_wallet.cash 
+
         user_data = user_wallet.to_dict()
         user_data['total_net_worth'] = total_net_worth
-        user_data['total_asset_value'] = total_asset_value
-        user_data['assets'] = enriched_assets
 
+        user_fund = self.finsight_repo.get_user_account(user_id)
         system_fund = self.finsight_repo.get_system_account()
         bank_data = self.bank_repo.get_system_bank()
         pending_docs = self.finsight_repo.get_pending_logs()
         processed_inventory = self.get_available_inventory_with_price(view_date_str)
-        print(processed_inventory)
+
         finsight_data = system_fund.to_dict()
+        finsight_data['user'] = user_fund.to_dict()
         finsight_data['inventory'] = processed_inventory
         print(finsight_data)
         queue_list = [{
@@ -115,7 +57,7 @@ class SystemService:
             "type": doc.get("type"),
             "amount": doc.get("amount", 0),
             "created_at": doc.get("created_at"),
-            "details": doc.get("details", {}) # Quan trọng: Cần lấy thêm details để hiển thị Asset Name ở Frontend
+            "details": doc.get("details", {}) 
         } for doc in pending_docs]
 
         return {
@@ -158,18 +100,17 @@ class SystemService:
         
         return total_val
 
-    # --- 2. NẠP TIỀN ---
+    # --- 2. NẠP TIỀN VÀO NGĂN TỦ---
     def process_deposit(self, user_id, amount, date_str):
         # 1. User: Tăng Cash Remainder
-        self.finsight_repo.update_user_cash(user_id, amount)
-        
-        # 2. Log System (Chờ Sync)
-        self.finsight_repo.add_settlement_log(user_id, "CASH_IN", amount, date_str)
-        
-        # 3. Log History
-        self._log_transaction(user_id, "NAP", amount, date_str, "Nạp vào Finsight Cash")
+        self.drawer_repo.update_user_cash(user_id, amount)
+
+        # 2. Log lịch sử giao dịch
+        self._log_transaction(user_id, "NAP", amount, date_str, "Nạp vào Ngăn tủ")
         
         return {"status": "success", "message": "Nạp tiền thành công (Đã vào Cash Remainder)"}
+
+
 
     # --- 3. PHÂN BỔ (MUA CD TỪ FINSIGHT) ---
     def process_asset_allocation(self, user_id, date_str=None):
@@ -289,24 +230,190 @@ class SystemService:
         except Exception as e:
             # ... (Xử lý lỗi) ...
             return {"status": "error", "message": str(e)}
+   
 
-    # --- 4. RÚT TIỀN (Trừ Cash -> Thiếu thì Bán CD cho FS) ---
-    def process_withdrawal(self, user_id, amount, date_str):
-        trans_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else date.today()
-        amount = float(amount)
+    # =========================================================================
+    # [MODULE] SYNC ENGINE - ĐỒNG BỘ VỚI DRAWER (LOGIC RIÊNG BIỆT)
+    # =========================================================================
+
+    def sync_wallet_state_with_drawer(self, user_id, date_str=None):
+        if not date_str: date_str = date.today().isoformat()
         
+        print(date_str)
+        # 1. Lấy dữ liệu cơ sở
+        drawer_account = self.drawer_repo.get_user_account(user_id) 
+        drawer_cash = drawer_account.cash
+        print("Cash ngăn tủ", drawer_cash)
+
+        current_net_worth = self.calculate_user_net_worth(user_id, date_str)
+        diff = round(drawer_cash - current_net_worth, 2)
+        print("net worth finsight", current_net_worth)
+        
+        result = {"diff": diff, "actions": []}
+        print("Chênh lệch", diff)
+
+        try:
+            # CASE 1: USER NẠP TIỀN (Drawer tăng nhanh hơn Finsight)
+            if diff > 0:
+                self._sync_inject_funds(user_id, diff, date_str)
+                result["case"] = "USER_DEPOSIT"
+                result["actions"].append(f"Injected & Allocated: {diff}")
+                print("User nạp tiền")
+
+            # XỬ LÝ KHI DIFF < 0 (Drawer thấp hơn hoặc Finsight tăng nhanh hơn do lãi)
+            elif diff < 0:
+                amount_abs = abs(diff)
+                
+                # Kiểm tra lịch sử giao dịch rút tiền trong ngày (Query Repo)
+                # Giả sử repo có hàm trả về list hoặc count giao dịch rút
+                has_withdrawal = self.transaction_repo.has_action_in_day(user_id, "RUT", date_str)
+
+                if not has_withdrawal:
+                    # CASE 2: PHÁT SINH LÃI (Networth tăng do CD tăng giá, Drawer chưa cập nhật)
+                    # Chúng ta bơm lãi ngược lại cho Tủ để khớp Networth
+                    self.drawer_repo.update_user_cash(user_id, amount_abs)
+                    self._log_transaction(user_id, "TIEN LAI", amount_abs, date_str, f"Tiền lãi ")
+                    
+                    result["case"] = "DAILY_PROFIT_SYNC"
+                    result["actions"].append(f"Payout Interest to Drawer: {amount_abs}")
+                
+                else:
+                    # CASE 3: USER RÚT TIỀN (Drawer đã giảm tiền, Finsight cần giảm theo)
+                    self._sync_drain_funds(user_id, amount_abs, date_str)
+                    
+                    result["case"] = "USER_WITHDRAWAL"
+                    result["actions"].append(f"Drained Finsight Assets: {amount_abs}")
+
+            else:
+                result["case"] = "NO_CHANGE"
+
+            print(result)
+            return {**result, "status": "success"}
+
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    # HÀM 1: INJECT (NẠP ĐỒNG BỘ + TỰ ĐỘNG MUA)
+ 
+    def _sync_inject_funds(self, user_id, amount, date_str):
+        """
+        Bơm tiền vào Cash và lập tức gọi phân bổ mua CD.
+        Log Type: SYNC_IN
+        """
+
+        print("Đang bơm cash")
+        # 1. Bơm Cash
+        self.finsight_repo.update_user_cash(user_id, amount)
+        self.finsight_repo.add_settlement_log(user_id, "CASH_IN", amount, date_str)
+        
+        # 2. Tự động dùng Cash đó mua CD (Auto-Invest)
+        result = self._sync_auto_allocate(user_id, date_str)
+        
+        return result
+
+    def _sync_auto_allocate(self, user_id, date_str):
+        """
+        Logic phân bổ dành riêng cho Sync. 
+        Khác hàm gốc ở chỗ: Không return message dài dòng, ưu tiên mua hết tiền.
+        """
+
+        print("Đang phân bổ")
+        allocation_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        user_acc = self.finsight_repo.get_user_account(user_id)
+        available_cash = user_acc.cash
+
+        if available_cash <= 1000: return # Số dư quá nhỏ bỏ qua
+
+        # Lấy danh sách CD (Logic chọn hàng vẫn giống cũ)
+        available_cds = self.cd_repo.get_sellable_cds()
+        processed_cds = []
+        for cd in available_cds:
+            p = self._calculate_cd_price_dynamic(cd, allocation_date)
+            if p > 0:
+                cd['current_price'] = p
+                processed_cds.append(cd)
+        processed_cds.sort(key=lambda x: x['current_price'], reverse=True)
+
+        shopping_cart = []
+        asset_map = {asset['maCD']: asset for asset in user_acc.assets}
+        total_cost = 0
+        db_record_list = []
+        remaining_cash = available_cash
+
+        for cd in processed_cds:
+            if remaining_cash <= 0: break
+            price = cd['current_price']
+            stock = cd['real_stock']
+            cd_id = cd['thongTinChung']['maDoiChieu']
+            
+            qty = min(int(remaining_cash // price), stock)
+            if qty > 0:
+                cost = qty * price
+                shopping_cart.append({"maCD": cd_id, "soLuong": qty})
+                
+                new_asset_record = {
+                    "maCD": cd_id, "soLuong": qty, 
+                    "giaVon": price, "ngayMua": date_str
+                }
+                db_record_list.append(new_asset_record)
+                
+                if cd_id in asset_map:
+                    existing = asset_map[cd_id]
+                    existing['soLuong'] = int(existing['soLuong']) + qty
+                else:
+                    asset_map[cd_id] = new_asset_record
+                
+                remaining_cash -= cost
+                total_cost += cost
+
+        if total_cost > 0:
+            updated_assets = list(asset_map.values())
+            
+            # Execute DB Updates
+            self.finsight_repo.update_user_cash(user_id, -total_cost)
+            self.finsight_repo.update_system_cash(total_cost)
+            self.finsight_repo.update_user_assets(user_id, updated_assets)
+            
+            for item in shopping_cart:
+                self.cd_repo.decrease_stock(item['maCD'], item['soLuong'])
+
+            # Log riêng cho Sync
+            self.finsight_repo.add_settlement_log(
+                user_id, "SYNC_AUTO_ALLOCATED", total_cost, date_str, {"assets": db_record_list}
+            )
+            return {
+                "status": "success",
+                "message": f"Đã mua {len(shopping_cart)} mã CD, tổng chi {total_cost:,.0f}"
+            }
+        
+        return {"status": "warning", "message": "Không có CD phù hợp để mua hoặc hết tiền mặt."}
+
+    # HÀM 2: DRAIN (RÚT ĐỒNG BỘ + TỰ ĐỘNG BÁN)
+
+    def _sync_drain_funds(self, user_id, amount, date_str):
+        """
+        Rút tiền để khớp với Drawer.
+        Logic: Trừ Cash -> Thiếu thì bán CD.
+        Log Type: SYNC_CASH_OUT / SYNC_LIQUIDATE
+        """
+        print("Đang rút tiền")
+        trans_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         user_acc = self.finsight_repo.get_user_account(user_id)
         current_cash = user_acc.cash
         
-        # A. Đủ Cash
+        # 1. Nếu đủ Cash -> Trừ Cash luôn
         if current_cash >= amount:
             self.finsight_repo.update_user_cash(user_id, -amount)
-            self.finsight_repo.add_settlement_log(user_id, "CASH_OUT", amount, date_str)
-            self._log_transaction(user_id, "RUT", amount, date_str, "Rút từ Cash Remainder")
-            return {"status": "success", "message": "Rút tiền thành công"}
+            self.finsight_repo.add_settlement_log(user_id, "SYNC_CASH_OUT", amount, date_str)
+            return
 
-        # B. Thiếu Cash -> Bán CD
+        # 2. Nếu thiếu Cash -> Phải bán CD
         shortage = amount - current_cash
+        
+        # [Strategy: Ưu tiên bán CD nào?]
+        # Ở đây tôi giữ logic cũ: Duyệt qua list assets.
+        # Nếu muốn tối ưu (ví dụ bán cái lãi thấp nhất trước), hãy sort user_acc.assets ở đây.
+        
         assets_to_sell = []
         remaining_assets = []
         cash_raised = 0
@@ -325,7 +432,7 @@ class SystemService:
             
             revenue = qty * price
             cash_raised += revenue
-            shortage -= revenue
+            shortage -= revenue # Giảm lượng tiền còn thiếu
             
             assets_to_sell.append({"maCD": ma_cd, "soLuong": qty})
             
@@ -333,30 +440,45 @@ class SystemService:
                 new_as = asset.copy()
                 new_as['soLuong'] = so_luong - qty
                 remaining_assets.append(new_as)
+        
+        # Thực hiện update DB
+        # Net change của Cash = (Tiền bán được) - (Tiền cần rút)
+        # Vd: Cần rút 100. Cash có 20. Thiếu 80. Bán CD được 85.
+        # Cash mới = 20 + 85 - 100 = 5.
+        net_cash_change = cash_raised - amount
 
-        if (current_cash + cash_raised) < amount:
-            return {"status": "error", "message": "Tổng tài sản không đủ."}
-
-        # EXECUTE
-        # 1. Trả kho CD
         for item in assets_to_sell:
             self.cd_repo.increase_stock(item['maCD'], item['soLuong'])
 
-        # 2. User Account: Asset Giảm, Cash Tăng (tạm thời), sau đó Cash Giảm (do Rút)
-        # Net Cash Change = Tiền bán được - Số tiền rút
-        net_change = cash_raised - amount
-        
         self.finsight_repo.update_user_assets(user_id, remaining_assets)
-        self.finsight_repo.update_user_cash(user_id, net_change)
+        self.finsight_repo.update_user_cash(user_id, net_cash_change)
+        self.finsight_repo.update_system_cash(-cash_raised) # Hệ thống bỏ tiền ra mua lại
 
-        # 3. FS Account: Tiền mặt Giảm (Do phải bỏ tiền mua lại CD)
-        self.finsight_repo.update_system_cash(-cash_raised)
-
-        # 4. Log Sync
-        self.finsight_repo.add_settlement_log(user_id, "LIQUIDATE_CD", cash_raised,date_str, {"sold": assets_to_sell})
-        self.finsight_repo.add_settlement_log(user_id, "CASH_OUT", amount, date_str)
+        # Log Sync
+        if assets_to_sell:
+            self.finsight_repo.add_settlement_log(
+                user_id, "SYNC_LIQUIDATE_CD", cash_raised, date_str, {"sold": assets_to_sell}
+            )
         
-        self._log_transaction(user_id, "RUT", amount, date_str, f"Rút (Bán {len(assets_to_sell)} CD)")
+        # Vẫn log Cash Out dòng tiền tổng
+        self.finsight_repo.add_settlement_log(user_id, "SYNC_CASH_OUT", amount, date_str)
+
+
+    # --- 4. RÚT TIỀN (Trừ Cash -> Thiếu thì Bán CD cho FS) ---
+    def process_withdrawal(self, user_id, amount, date_str):
+        amount = float(amount)
+        user_acc = self.drawer_repo.get_user_account(user_id)
+        current_cash = user_acc.cash
+        
+        # A. Đủ Cash
+        if current_cash >= amount:
+            self.drawer_repo.update_user_cash(user_id, -amount)
+            self._log_transaction(user_id, "RUT", amount, date_str, "Rút")
+            return {"status": "success", "message": "Rút tiền thành công"}
+
+        
+        self.drawer_repo.update_user_cash(user_id, amount)
+        self._log_transaction(user_id, "RUT", amount, date_str, f"Rút ")
         return {"status": "success", "message": "Rút tiền & Thanh khoản thành công"}
     # --- 5. LẤY KHO FINSIGHT KÈM GIÁ (Dùng cho UI "Tài sản Finsight") ---
     def get_available_inventory_with_price(self, view_date_str=None):
@@ -421,6 +543,7 @@ class SystemService:
             
         return results
     def reset_database(self):
+        print("Đang xóa")
         """
         DANGER: Xóa toàn bộ dữ liệu trong các Collection của hệ thống.
         Dùng cho mục đích Reset Test Case.
@@ -429,11 +552,12 @@ class SystemService:
         
         # Danh sách các collection cần xóa
         target_collections = [
-            'finsight_users',       # Ví User
-            'finsight_system',      # Quỹ hệ thống
-            'bank',                 # NHLK
-            'transactions',         # Lịch sử giao dịch
-            'settlement_queue'      # Log chờ Sync
+            'finsight2_users',       # Ví User
+            'finsight2_system',      # Quỹ hệ thống
+            'bank2',                 # NHLK
+            'transactions2',         # Lịch sử giao dịch
+            'settlement2_queue',     # Log chờ Sync
+            'drawer',
         ]
 
         deleted_count = 0
@@ -695,5 +819,4 @@ class SystemService:
         return prev
 
     def _log_transaction(self, uid, action, amt, date, note):
-        from models.transaction import Transaction
-        self.transaction_repo.add_transaction(Transaction(uid, action, amt, date, note))
+        self.transaction_repo.add_transaction(Transaction2(uid, action, amt, date, note))

@@ -1,6 +1,6 @@
 from flask import jsonify, request
 
-class SystemController:
+class SystemController2:
     def __init__(self, service):
         self.service = service
 
@@ -97,7 +97,33 @@ class SystemController:
         except Exception as e:
             print(f"Error Allocating: {e}")
             return jsonify({"success": False, "message": str(e)}), 500
+        
+
+    def sync_Diff(self):
+        """
+        API Trigger sync chênh lệch giữa ngăn tủ và hệ thống core TVAM
+        POST /system/api/syncDiff 
+        Body: { "user_id": "...", "date": "2023-12-12" }
+        """
+        try:
+            # Lấy data từ Body JSON
+            data = request.get_json() or {}
             
+            user_id = data.get('user_id', 'user_default')
+            date_str = data.get('date') # Lấy ngày được gửi lên
+
+            # Gọi Service truyền thêm date_str
+            result = self.service.sync_wallet_state_with_drawer(user_id,date_str)
+            
+            return jsonify({
+                "success": result['status'] == 'success',
+                "message": result['message'],
+                "data": result.get('details', [])
+            }), 200
+        except Exception as e:
+            print(f"Error Allocating: {e}")
+            return jsonify({"success": False, "message": str(e)}), 500
+
 
     def withdraw_money(self):
         try:
