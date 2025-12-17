@@ -18,7 +18,6 @@ class TransactionController:
             data = request.json
             result = self.service.add_transaction(data)
             
-            
             if result.get("status") == "success":
                 return jsonify(result), 200
             else:
