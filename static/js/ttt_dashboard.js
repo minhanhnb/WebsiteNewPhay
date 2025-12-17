@@ -157,6 +157,7 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 btnSubmit.innerText = "Đang xử lý...";
                 btnSubmit.disabled = true;
+                
 
                 const res = await fetch("/ttt/api/transact", {
                     method: "POST",

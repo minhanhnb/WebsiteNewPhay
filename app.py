@@ -15,9 +15,16 @@ app.register_blueprint(cd_bp)
 
 from routes.transaction_routes import ttt_bp
 app.register_blueprint(ttt_bp)
+from routes.T2.transaction_routes import ttt2_bp
+app.register_blueprint(ttt2_bp)
+
+
 
 from routes.system_routes import system_bp
 app.register_blueprint(system_bp)
+from routes.T2.system_routes import system2_bp
+app.register_blueprint(system2_bp)
+
 
 # Test route
 @app.route("/test")

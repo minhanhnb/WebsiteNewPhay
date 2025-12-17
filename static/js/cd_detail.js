@@ -91,11 +91,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
 
-    // --- CALCULATION LOGIC ---
-
-    // --- 1. CẬP NHẬT LOGIC VẼ BIỂU ĐỒ ---
-    // --- 1. CẬP NHẬT LOGIC VẼ BIỂU ĐỒ ---
-    // --- 1. CẬP NHẬT LOGIC VẼ BIỂU ĐỒ ---
+   
+    // --- 1. HÀM VẼ BIỂU ĐỒ (LOOP 30 NGÀY) ---
     function calculateAndDraw() {
         if (!cdData) return;
 
@@ -116,46 +113,64 @@ document.addEventListener("DOMContentLoaded", async () => {
         const dataCustom = [];
         const dataMarketValue = [];
 
-        // Tính Giá Gốc tại ngày phát hành (P_0) để làm mốc Reset
+        // Tính Price Base Day 0 (Mốc chuẩn tại ngày phát hành)
         const firstNextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, issueDate);
         const priceBaseDay0 = calculateYieldFormula(menhGia, cdCouponRate, userInputRate, firstNextCoupon, issueDate, issueDate, maturityDate, tanSuatStr);
 
         let loopDate = new Date(issueDate);
         let safetyCount = 0;
+        let isLastLoop = false;
 
+        // Vòng lặp vẽ biểu đồ
         while (loopDate <= maturityDate && safetyCount < 3000) {
             labels.push(formatDateVN(loopDate));
 
-            // 1. Yield Price (Công thức chuẩn)
-            const nextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, loopDate);
+            // [LOGIC RESET GIÁ]: Dùng ngày hôm qua để xác định kỳ
+            // - Ngày trả lãi: prevDate thuộc kỳ cũ -> daysPassed lớn -> Giá Cao.
+            // - Ngày hôm sau: prevDate thuộc kỳ mới -> daysPassed nhỏ -> Giá Reset.
+            let anchorDate = new Date(loopDate);
+            if (loopDate.getTime() !== issueDate.getTime()) {
+                anchorDate.setDate(anchorDate.getDate() - 1);
+            }
+
+            const lastCoupon = getLastCouponDate(issueDate, maturityDate, tanSuatStr, anchorDate);
+            const nextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, anchorDate);
+            
+            // Tính số ngày tích luỹ lãi
+            let daysPassedInPeriod = (loopDate - lastCoupon) / (1000 * 60 * 60 * 24);
+
+            // Xử lý riêng cho ngày phát hành (không bị reset về 1)
+            if (daysPassedInPeriod === 0 && loopDate.getTime() !== issueDate.getTime()) {
+                // Code safety: nếu lỡ logic trên trả về 0 vào ngày thường thì set về 1
+                 daysPassedInPeriod = 1; 
+            }
+
+            // 1. Yield Price
             const pYield = calculateYieldFormula(menhGia, cdCouponRate, userInputRate, nextCoupon, loopDate, issueDate, maturityDate, tanSuatStr);
             dataYield.push(pYield);
 
-            // -------------------------------------------------------------
-            // [CẬP NHẬT] 2. Custom Price: Reset vào ngày HÔM SAU ngày trả lãi
-            // -------------------------------------------------------------
-            // Mẹo: Lấy ngày hôm qua để tìm mốc kỳ hạn.
-            // - Nếu loopDate là ngày trả lãi: hôm qua vẫn thuộc kỳ cũ -> tính tiếp lãi -> Giá Cao.
-            // - Nếu loopDate là ngày sau trả lãi: hôm qua là ngày trả lãi (đầu kỳ mới) -> Reset -> Giá Thấp.
-            
-            const prevDate = new Date(loopDate);
-            prevDate.setDate(prevDate.getDate() - 1); 
-            
-            // Tìm mốc trả lãi gần nhất của "Hôm qua"
-            const lastCouponForCustom = getLastCouponDate(issueDate, maturityDate, tanSuatStr, prevDate);
-            
-            const daysPassedInPeriod = (loopDate - lastCouponForCustom) / (1000 * 60 * 60 * 24);
-            
-            // Công thức lãi kép: Base * (1 + r)^t
+            // 2. Custom Price (Lãi kép trên nền PriceBase0)
             const pCustom = priceBaseDay0 * Math.pow(1 + userInputRate/365, daysPassedInPeriod);
-            
             dataCustom.push(pCustom);
 
-            // 3. Market Value
-            const pMarketValue = calculateMarketValue(menhGia, cdCouponRate, loopDate, issueDate, tanSuatStr);
-            dataMarketValue.push(pMarketValue);
+            // 3. Market Value (Mệnh giá + Lãi tích luỹ)
+            const accruedVal = menhGia * cdCouponRate * (daysPassedInPeriod / 365);
+            dataMarketValue.push(menhGia + accruedVal);
 
-            loopDate.setDate(loopDate.getDate() + 5); 
+            // Break nếu vừa xử lý xong ngày đáo hạn
+            if (isLastLoop) break;
+
+            // Tăng loopDate lên 30 ngày
+            loopDate.setDate(loopDate.getDate() + 30); 
+            
+            // Kiểm tra nếu vượt quá maturityDate thì set về maturityDate cho vòng lặp cuối
+            if (loopDate > maturityDate) {
+                loopDate = new Date(maturityDate);
+                isLastLoop = true; // Đánh dấu để break sau khi vẽ xong điểm cuối
+            } else if (loopDate.getTime() === maturityDate.getTime()) {
+                isLastLoop = true;
+            }
+            
             safetyCount++;
         }
 
@@ -163,7 +178,63 @@ document.addEventListener("DOMContentLoaded", async () => {
         updateDisplayOnly(); 
     }
 
-    // --- 2. CẬP NHẬT LOGIC HIỂN THỊ SỐ (TEXT) ---
+    // --- 2. CÔNG THỨC YIELD (ĐÃ FIX LOGIC NGÀY PHÁT HÀNH VÀ TRẢ LÃI) ---
+    function calculateYieldFormula(M, r_CD, r_User, nextDate, currDate, issueDate, maturityDate, freqStr) {
+        const s = (freqStr || "").toLowerCase().trim();
+
+        // 1. Đáo hạn
+        if (currDate >= maturityDate) {
+             if (s.includes("cuối kỳ")) {
+                 const totalDays = (maturityDate - issueDate)/(1000*60*60*24);
+                 return M + (M * r_CD * totalDays/365);
+             } else {
+                 const lastDate = getLastCouponDate(issueDate, maturityDate, freqStr, new Date(maturityDate.getTime() - 86400000));
+                 const daysInPeriod = (maturityDate - lastDate)/(1000*60*60*24);
+                 return M + (M * r_CD * daysInPeriod/365);
+             }
+        }
+        
+        // 2. Dòng tiền tương lai (Gốc + Lãi kỳ này)
+        let giaTuongLai = 0;
+        if (s.includes("cuối kỳ")) {
+            const totalDaysCD = (maturityDate - issueDate) / (1000 * 60 * 60 * 24);
+            giaTuongLai = M + (M * r_CD * (totalDaysCD / 365));
+        } else {
+            const lastDate = getLastCouponDate(issueDate, maturityDate, freqStr, new Date(nextDate.getTime() - 86400000));
+            const daysInPeriod = (nextDate - lastDate) / (1000 * 60 * 60 * 24);
+            giaTuongLai = M + (M * r_CD * (daysInPeriod / 365));
+        }
+
+        // 3. Chiết khấu
+        let daysToDiscount = (nextDate - currDate) / (1000 * 60 * 60 * 24);
+
+        // RULE: 
+        // - Tại ngày phát hành (issueDate): giữ nguyên daysToDiscount để tính giá gốc chuẩn.
+        // - Tại ngày trả lãi (daysToDiscount ~ 0): Ép về 0 để giá đạt đỉnh (High) trước khi reset.
+        if (daysToDiscount <= 0 && currDate.getTime() !== issueDate.getTime()) {
+            daysToDiscount = 0; 
+        }
+
+        const denominator = 1 + (r_User * daysToDiscount) / 365;
+        return giaTuongLai / denominator;
+    }
+
+    function calculateMarketValue(M, r_CD, currDate, issueDate, freqStr) {
+        // Dùng anchorDate để đồng bộ logic reset vào ngày hôm sau
+        let anchorDate = new Date(currDate);
+        if (currDate.getTime() !== issueDate.getTime()) {
+            anchorDate.setDate(anchorDate.getDate() - 1);
+        }
+
+        const lastCouponDate = getLastCouponDate(issueDate, null, freqStr, anchorDate);
+        const daysPassedInPeriod = (currDate - lastCouponDate) / (1000 * 60 * 60 * 24);
+        
+        if (daysPassedInPeriod < 0) return M;
+        const accruedInterest = M * r_CD * (daysPassedInPeriod / 365);
+        return M + accruedInterest;
+    }
+
+    // --- 3. HIỂN THỊ TEXT (ĐỒNG BỘ LOGIC) ---
     function updateDisplayOnly() {
         if (!cdData) return;
         
@@ -180,138 +251,92 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (!issueDate || !maturityDate) return;
 
+        // Logic Anchor Date cho text
+        let anchorDate = new Date(selectedDate);
+        if (selectedDate.getTime() !== issueDate.getTime()) {
+            anchorDate.setDate(anchorDate.getDate() - 1);
+        }
+
+        const lastCoupon = getLastCouponDate(issueDate, maturityDate, tanSuatStr, anchorDate);
+        const nextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, anchorDate);
+        const daysPassedInPeriod = (selectedDate - lastCoupon) / (1000 * 60 * 60 * 24);
+
         // 1. Yield Calc
-        const nextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, selectedDate);
         const valYield = calculateYieldFormula(menhGia, cdCouponRate, userInputRate, nextCoupon, selectedDate, issueDate, maturityDate, tanSuatStr);
 
-        // -------------------------------------------------------------
-        // [CẬP NHẬT] 2. Custom Calc (Logic đồng bộ với biểu đồ)
-        // -------------------------------------------------------------
+        // 2. Custom Calc
         const firstNextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, issueDate);
         const priceBaseDay0 = calculateYieldFormula(menhGia, cdCouponRate, userInputRate, firstNextCoupon, issueDate, issueDate, maturityDate, tanSuatStr);
-
-        // Dùng logic "Hôm qua" để xác định reset
-        const prevDate = new Date(selectedDate);
-        prevDate.setDate(prevDate.getDate() - 1);
-        
-        const lastCouponForCustom = getLastCouponDate(issueDate, maturityDate, tanSuatStr, prevDate);
-        const daysPassedInPeriod = (selectedDate - lastCouponForCustom) / (1000 * 60 * 60 * 24);
-        
         const valCustom = priceBaseDay0 * Math.pow(1 + userInputRate/365, daysPassedInPeriod);
         
-        // 3. Market Value
+        // 3. Market Value Calc
         const valMarketValue = calculateMarketValue(menhGia, cdCouponRate, selectedDate, issueDate, tanSuatStr);
 
         if(elPriceYield) elPriceYield.innerText = formatCurrency(valYield);
         if(elPriceCustom) elPriceCustom.innerText = formatCurrency(valCustom);
         if(elMarketValue) elMarketValue.innerText = formatCurrency(valMarketValue);
     }
-    function calculateYieldFormula(M, r_CD, r_User, nextDate, currDate, issueDate, maturityDate, freqStr) {
-        // Nếu đã đáo hạn
-        if (currDate >= maturityDate) {
-             // Logic cuối kỳ thì cộng hết, logic định kỳ thì chỉ cộng kỳ cuối
-             const s = (freqStr || "").toLowerCase().trim();
-             if (s.includes("cuối kỳ")) {
-                 const totalDays = (maturityDate - issueDate)/(1000*60*60*24);
-                 return M + (M * r_CD * totalDays/365);
-             } else {
-                 // Nếu trả định kỳ, tại ngày đáo hạn nhận Gốc + Lãi kỳ cuối
-                 // Cần tìm ngày trả lãi trước đó để tính số ngày kỳ cuối
-                 const lastDate = getLastCouponDate(issueDate, maturityDate, freqStr, new Date(maturityDate.getTime() - 86400000));
-                 const daysInPeriod = (maturityDate - lastDate)/(1000*60*60*24);
-                 return M + (M * r_CD * daysInPeriod/365);
-             }
-        }
-        
-        // 1. XÁC ĐỊNH TỬ SỐ (DÒNG TIỀN TƯƠNG LAI)
-        let giaTuongLai = 0;
-        const s = (freqStr || "").toLowerCase().trim();
 
-        if (s.includes("cuối kỳ")) {
-            // CD trả lãi cuối kỳ: Lãi tính trên TỔNG thời gian từ đầu đến cuối
-            const totalDaysCD = (maturityDate - issueDate) / (1000 * 60 * 60 * 24);
-            const totalInterest = M * r_CD * (totalDaysCD / 365); 
-            giaTuongLai = M + totalInterest;
-        } else {
-            // CD trả lãi định kỳ: Dòng tiền sắp nhận = Gốc (nếu đáo hạn) + Lãi của KỲ NÀY thôi
-            // Cần tính xem kỳ này dài bao nhiêu ngày (NextCoupon - LastCoupon)
-            const lastDate = getLastCouponDate(issueDate, maturityDate, freqStr, currDate);
-            const daysInPeriod = (nextDate - lastDate) / (1000 * 60 * 60 * 24);
-            
-            // Lãi coupon sắp nhận
-            const couponPayment = M * r_CD * (daysInPeriod / 365);
-            
-            // Giả định Yield Price tính về Par + Coupon (đơn giản hoá cho dirty price)
-            // Tại mỗi kỳ, giá trị tương lai là Mệnh Giá + Coupon kỳ đó
-            giaTuongLai = M + couponPayment;
-        }
+ 
 
-        // 2. CHIẾT KHẤU VỀ HIỆN TẠI
-        let daysToDiscount = (nextDate - currDate) / (1000 * 60 * 60 * 24);
-        if (daysToDiscount < 0) daysToDiscount = 0;
+    function renderChart(labels, d1, d2, d3) { 
+        const ctx = document.getElementById('priceChart').getContext('2d');
+        if (myChart) myChart.destroy();
 
-        const denominator = 1 + (r_User * daysToDiscount) / 365;
-        return giaTuongLai / denominator;
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Giá Yield',
+                        data: d1,
+                        borderColor: 'rgb(255, 99, 132)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Giá Yield + Khoảng X',
+                        data: d2,
+                        borderColor: 'rgb(54, 162, 235)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.1
+                    },
+                    { 
+                        label: 'Market Value',
+                        data: d3,
+                        borderColor: 'rgb(241, 196, 15)', 
+                        backgroundColor: 'rgba(241, 196, 15, 0.2)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.1,
+                        borderDash: [5, 5] 
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => context.dataset.label + ': ' + formatCurrency(context.raw)
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: (value) => formatCurrency(value) 
+                        }
+                    }
+                }
+            }
+        });
     }
-
-    function calculateMarketValue(M, r_CD, currDate, issueDate, freqStr) {
-        // [FIXED] Market Value = Mệnh giá + Lãi tích luỹ (Accrued Interest)
-        // Lãi tích luỹ phải được reset về 0 sau mỗi lần trả lãi.
-        
-        // 1. Tìm ngày bắt đầu tính lãi của kỳ này
-        const lastCouponDate = getLastCouponDate(issueDate, null, freqStr, currDate);
-        
-        // 2. Tính số ngày đã trôi qua trong kỳ này
-        const daysPassedInPeriod = (currDate - lastCouponDate) / (1000 * 60 * 60 * 24);
-        
-        if (daysPassedInPeriod < 0) return M;
-
-        // 3. Tính lãi tích luỹ
-        const accruedInterest = M * r_CD * (daysPassedInPeriod / 365);
-        
-        return M + accruedInterest;
-    }
-
-    // function updateDisplayOnly() {
-    //     if (!cdData) return;
-        
-    //     const selectedDate = new Date(elDate.value); 
-    //     const userInputRate = parseMoneyVN(elRate.value) / 100;
-    //     const c1 = cdData.thongTinChung || {};
-    //     const c2 = cdData.thongTinLaiSuat || {};
-        
-    //     const menhGia = parseMoneyVN(c1.menhGia);
-    //     const cdCouponRate = parseMoneyVN(c2.laiSuat) / 100;
-    //     const issueDate = parseDateVN(c1.ngayPhatHanh);
-    //     const maturityDate = parseDateVN(c1.ngayDaoHan);
-    //     const tanSuatStr = c2.tanSuatTraLai || "Cuối kỳ";
-
-    //     if (!issueDate || !maturityDate) return;
-
-    //     // 1. Yield Calc
-    //     const nextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, selectedDate);
-    //     const valYield = calculateYieldFormula(menhGia, cdCouponRate, userInputRate, nextCoupon, selectedDate, issueDate, maturityDate, tanSuatStr);
-
-    //     // -------------------------------------------------------------
-    //     // [CẬP NHẬT] 2. Custom Calc: Đồng bộ logic lãi kép
-    //     // -------------------------------------------------------------
-    //     // Tính lại giá gốc ngày đầu
-    //     const firstNextCoupon = getNextCouponDate(issueDate, maturityDate, tanSuatStr, issueDate);
-    //     const priceBaseDay0 = calculateYieldFormula(menhGia, cdCouponRate, userInputRate, firstNextCoupon, issueDate, issueDate, maturityDate, tanSuatStr);
-        
-    //     // Tính số ngày từ đầu đến ngày chọn
-    //     const daysFromStart = (selectedDate - issueDate) / (1000 * 60 * 60 * 24);
-        
-    //     // Áp dụng công thức luỹ thừa
-    //     const valCustom = priceBaseDay0 * Math.pow(1 + userInputRate/365, daysFromStart);
-
-    //     // 3. Market Value
-    //     const valMarketValue = calculateMarketValue(menhGia, cdCouponRate, selectedDate, issueDate, tanSuatStr);
-
-    //     if(elPriceYield) elPriceYield.innerText = formatCurrency(valYield);
-    //     if(elPriceCustom) elPriceCustom.innerText = formatCurrency(valCustom);
-    //     if(elMarketValue) elMarketValue.innerText = formatCurrency(valMarketValue);
-    // }
 
     // --- HELPER FUNCTIONS ---
 
@@ -413,62 +438,62 @@ document.addEventListener("DOMContentLoaded", async () => {
         return `${d}/${m}/${y}`;
     }
 
-    function renderChart(labels, d1, d2, d3) { 
-        const ctx = document.getElementById('priceChart').getContext('2d');
-        if (myChart) myChart.destroy();
+    // function renderChart(labels, d1, d2, d3) { 
+    //     const ctx = document.getElementById('priceChart').getContext('2d');
+    //     if (myChart) myChart.destroy();
 
-        myChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Giá Yield',
-                        data: d1,
-                        borderColor: 'rgb(255, 99, 132)',
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        tension: 0.1
-                    },
-                    {
-                        label: 'Giá Yield + Khoảng X',
-                        data: d2,
-                        borderColor: 'rgb(54, 162, 235)',
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        tension: 0.1
-                    },
-                    { 
-                        label: 'Market Value',
-                        data: d3,
-                        borderColor: 'rgb(241, 196, 15)', 
-                        backgroundColor: 'rgba(241, 196, 15, 0.2)',
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        tension: 0.1,
-                        borderDash: [5, 5] 
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: (context) => context.dataset.label + ': ' + formatCurrency(context.raw)
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        ticks: {
-                            callback: (value) => formatCurrency(value) 
-                        }
-                    }
-                }
-            }
-        });
-    }
+    //     myChart = new Chart(ctx, {
+    //         type: 'line',
+    //         data: {
+    //             labels: labels,
+    //             datasets: [
+    //                 {
+    //                     label: 'Giá Yield',
+    //                     data: d1,
+    //                     borderColor: 'rgb(255, 99, 132)',
+    //                     borderWidth: 2,
+    //                     pointRadius: 0,
+    //                     tension: 0.1
+    //                 },
+    //                 {
+    //                     label: 'Giá Yield + Khoảng X',
+    //                     data: d2,
+    //                     borderColor: 'rgb(54, 162, 235)',
+    //                     borderWidth: 2,
+    //                     pointRadius: 0,
+    //                     tension: 0.1
+    //                 },
+    //                 { 
+    //                     label: 'Market Value',
+    //                     data: d3,
+    //                     borderColor: 'rgb(241, 196, 15)', 
+    //                     backgroundColor: 'rgba(241, 196, 15, 0.2)',
+    //                     borderWidth: 2,
+    //                     pointRadius: 0,
+    //                     tension: 0.1,
+    //                     borderDash: [5, 5] 
+    //                 }
+    //             ]
+    //         },
+    //         options: {
+    //             responsive: true,
+    //             maintainAspectRatio: false,
+    //             interaction: { mode: 'index', intersect: false },
+    //             plugins: {
+    //                 tooltip: {
+    //                     callbacks: {
+    //                         label: (context) => context.dataset.label + ': ' + formatCurrency(context.raw)
+    //                     }
+    //                 }
+    //             },
+    //             scales: {
+    //                 y: {
+    //                     ticks: {
+    //                         callback: (value) => formatCurrency(value) 
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     });
+    // }
 });

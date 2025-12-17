@@ -1,19 +1,19 @@
 from flask import Blueprint, render_template
 # 1. Import Dependencies
 from repository.user_repo import UserRepository
-from repository.bank_repo import BankRepository
-from repository.finsight_repo import FinsightRepository
-from repository.transaction_repo import TransactionRepository
+from repository.T2.bank_repo import BankRepository2
+from repository.T2.finsight_repo import FinsightRepository2
+from repository.T2.transaction_repo import TransactionRepository2
 from repository.cd_repo import CDRepository # <--- Import Mới
-from services.system_service import SystemService
-from controller.system_controller import SystemController
+from services.T2.system_service import SystemService
+from controller.T2.system_controller import SystemController
 
-system_bp = Blueprint("system_bp", __name__)
+system2_bp = Blueprint("system2_bp", __name__)
 
-transaction_repo = TransactionRepository()
+transaction_repo = TransactionRepository2()
 user_repo = UserRepository()
-bank_repo = BankRepository()
-finsight_repo = FinsightRepository()
+bank_repo = BankRepository2()
+finsight_repo = FinsightRepository2()
 cd_repo = CDRepository() # <--- Init Mới
 service = SystemService(finsight_repo, transaction_repo, cd_repo, bank_repo)
 controller = SystemController(service)
@@ -21,15 +21,15 @@ controller = SystemController(service)
 
 # --- ROUTES DEFINITIONS ---
 
-@system_bp.route("/system")
+@system2_bp.route("/system2")
 def system_dashboard():
     """
     Route này chịu trách nhiệm trả về View (HTML).
     Controller không cần can thiệp vào việc này.
     """
-    return render_template("dashboard.html")
+    return render_template("T2/dashboard2.html")
 
-@system_bp.route("/system/api/overview", methods=["GET"])
+@system2_bp.route("/system/api/overview", methods=["GET"])
 def api_system_overview():
     """
     Route này gọi Controller để xử lý logic API và trả về JSON.
@@ -38,28 +38,28 @@ def api_system_overview():
 
 
 
-@system_bp.route("/system/api/settle", methods=["POST"])
+@system2_bp.route("/system/api/settle", methods=["POST"])
 def api_settle_cash():
     return controller.settle_cash()
 
 
-@system_bp.route("/system/api/allocate", methods=["POST"])
+@system2_bp.route("/system/api/allocate", methods=["POST"])
 def api_allocate_cd():
     return controller.allocate_cd()
 
 
-@system_bp.route("/system/api/withdraw", methods=["POST"])
+@system2_bp.route("/system/api/withdraw", methods=["POST"])
 def api_withdraw():
     return controller.withdraw_money()
 
 
-@system_bp.route("/system/api/sync-bank", methods=["POST"])
+@system2_bp.route("/system/api/sync-bank", methods=["POST"])
 def api_sync_bank():
     """Gọi Controller để xử lý việc đẩy log giao dịch sang Bank"""
     return controller.sync_bank()
 
 
-@system_bp.route("/system/api/reset", methods=["POST"])
+@system2_bp.route("/system/api/reset", methods=["POST"])
 def api_reset_database():
     return controller.reset_database()
 
