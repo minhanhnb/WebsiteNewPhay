@@ -671,36 +671,40 @@ class SystemService:
             if view_date < ngay_ph: return 0.0 
 
             # -----------------------------------------------------------
-
+            # [LOGIC ĐỒNG BỘ FILE JS: CD_DETAIL.JS]
             # -----------------------------------------------------------
 
-            # 1. Tính Price Base Day 0 (Giá gốc chuẩn tại ngày phát hành theo NPV)
-            # Đây là mốc để reset về sau mỗi kỳ trả lãi
+            # 1. Tính Price Base Day 0 (Tại ngày phát hành)
+            # Lấy ngày trả lãi đầu tiên
             first_next_coupon = self._get_next_coupon_date(ngay_ph, ngay_dh, tan_suat, ngay_ph)
             
+            # Tính giá gốc theo công thức Yield (không dùng NPV loop)
             price_base_day_0 = self._calculate_yield_formula(
                 menh_gia, lai_suat_cd, r_user, 
-                first_next_coupon, ngay_ph, # Tính tại ngày phát hành
+                first_next_coupon, ngay_ph, # curr_date = issue_date
                 ngay_ph, ngay_dh, tan_suat
             )
 
-            # 2. Xác định kỳ hiện tại dựa trên "Ngày hôm qua" (Anchor Date)
-            # Để đảm bảo ngày trả lãi (VD: 1/1) vẫn tính là kỳ cũ (giá cao)
+            # 2. Xác định Anchor Date (Ngày tham chiếu)
+            # Logic: Dùng ngày hôm qua để xác định kỳ. 
+            # - Ngày trả lãi (1/1): Anchor = 31/12 (Kỳ cũ) -> Giá Cao.
+            # - Ngày hôm sau (2/1): Anchor = 1/1 (Kỳ mới) -> Giá Reset.
             anchor_date = view_date
-            if view_date > ngay_ph:
+            if view_date != ngay_ph:
                 anchor_date = view_date - timedelta(days=1)
 
+            # 3. Tìm ngày bắt đầu tính lãi của kỳ này (Last Coupon)
             last_coupon = self._get_last_coupon_date(ngay_ph, ngay_dh, tan_suat, anchor_date)
             
-            # 3. Tính số ngày nắm giữ trong kỳ này
+            # 4. Tính số ngày nắm giữ trong kỳ (Days Passed)
             days_passed = (view_date - last_coupon).days
 
-            # [Rule JS]: Nếu là ngày đầu kỳ (0 ngày) nhưng KHÔNG phải là ngày phát hành
-            # thì ép lên 1 để giá bắt đầu chạy (tránh trường hợp nhân với 0)
+            # 5. Rule đặc biệt JS: Nếu là ngày đầu kỳ (0 ngày) nhưng KHÔNG phải ngày phát hành
+            # thì ép lên 1 để giá bắt đầu chạy ngay (tránh nhân với 0)
             if days_passed == 0 and view_date != ngay_ph:
                 days_passed = 1
 
-            # 4. Tính giá Custom (Lãi kép trên nền Price Base 0)
+            # 6. Tính Custom Price (Lãi kép trên nền Price Base 0)
             # Công thức: Base * (1 + r/365) ^ days
             final_price = price_base_day_0 * math.pow(1 + r_user/365.0, days_passed)
 
@@ -712,69 +716,52 @@ class SystemService:
 
     def _calculate_yield_formula(self, M, r_CD, r_User, next_date, curr_date, issue_date, maturity_date, freq_str):
         """
-        Tính giá trị Yield theo phương pháp NPV (Chiết khấu dòng tiền).
-        Đồng bộ với logic JS 'calculateYieldFormula' mới nhất.
+        Tính giá trị Yield theo công thức trong file JS (Không dùng vòng lặp NPV).
+        Giả định giá trị tương lai là (M + Coupon kỳ này).
         """
         freq_str_lower = (freq_str or "").lower()
 
-        # CASE 1: Đã đáo hạn hoặc quá hạn
+        # 1. Xử lý trường hợp Đã Đáo Hạn
         if curr_date >= maturity_date:
             if "cuối kỳ" in freq_str_lower:
                 total_days = (maturity_date - issue_date).days
                 return M + (M * r_CD * total_days / 365.0)
             else:
-                # Định kỳ: Gốc + Lãi kỳ cuối
                 last_date = self._get_last_coupon_date(issue_date, maturity_date, freq_str, maturity_date - timedelta(days=1))
                 days_in_period = (maturity_date - last_date).days
                 return M + (M * r_CD * days_in_period / 365.0)
 
-        # CASE 2: Trả lãi CUỐI KỲ (Đơn giản)
+        # 2. Tính Dòng Tiền Tương Lai (Gia Tuong Lai)
+        future_value = 0.0
+        
         if "cuối kỳ" in freq_str_lower:
+            # Cuối kỳ: FV = Gốc + Tổng lãi
             total_days_cd = (maturity_date - issue_date).days
             total_interest = M * r_CD * (total_days_cd / 365.0)
             future_value = M + total_interest
+        else:
+            # Định kỳ: FV = Gốc + Lãi coupon của KỲ NÀY
+            # Tìm ngày bắt đầu của kỳ lãi ứng với next_date
+            last_date_of_period = self._get_last_coupon_date(issue_date, maturity_date, freq_str, next_date - timedelta(days=1))
+            days_in_period = (next_date - last_date_of_period).days
             
-            days_to_discount = (maturity_date - curr_date).days
-            if days_to_discount < 0: days_to_discount = 0
-            
-            return future_value / (1 + r_User * days_to_discount / 365.0)
+            coupon_payment = M * r_CD * (days_in_period / 365.0)
+            future_value = M + coupon_payment
 
-        # CASE 3: Trả lãi ĐỊNH KỲ (Vòng lặp NPV)
-        total_pv = 0.0
-        loop_coupon_date = next_date
-        limit = 0
+        # 3. Tính Mẫu Số Chiết Khấu (Denominator)
+        days_to_discount = (next_date - curr_date).days
 
-        # Duyệt qua tất cả các kỳ trả lãi còn lại
-        while loop_coupon_date <= maturity_date and limit < 500:
-            # Tìm ngày bắt đầu của kỳ lãi này
-            prev_coup = self._get_last_coupon_date(issue_date, maturity_date, freq_str, loop_coupon_date - timedelta(days=1))
-            days_in_period = (loop_coupon_date - prev_coup).days
-            
-            # Dòng tiền (Coupon)
-            cash_flow = M * r_CD * (days_in_period / 365.0)
+        # Rule JS: 
+        # - Tại ngày phát hành (curr == issue): Giữ nguyên days để tính giá gốc.
+        # - Tại ngày trả lãi (days <= 0): Ép về 0 để giá đạt đỉnh (High Value).
+        if days_to_discount <= 0 and curr_date != issue_date:
+            days_to_discount = 0
+        
+        denominator = 1 + (r_User * days_to_discount) / 365.0
+        
+        return future_value / denominator
+    
 
-            # Nếu là ngày đáo hạn -> Cộng thêm Gốc
-            if loop_coupon_date == maturity_date:
-                cash_flow += M
-
-            # Chiết khấu về hiện tại
-            days_from_now = (loop_coupon_date - curr_date).days
-            
-            # Rule đặc biệt từ JS: Nếu ngay tại ngày trả lãi (days=0), ép về 0 (hoặc giữ nguyên) để giá đạt đỉnh
-            # (Trong JS logic là daysToDiscount <= 0 -> 0, ở đây days_from_now có thể = 0)
-            if days_from_now < 0: days_from_now = 0
-            
-            pv = cash_flow / (1 + r_User * days_from_now / 365.0)
-            total_pv += pv
-
-            if loop_coupon_date == maturity_date:
-                break
-            
-            # Nhảy sang kỳ tiếp theo
-            loop_coupon_date = self._get_next_coupon_date(issue_date, maturity_date, freq_str, loop_coupon_date)
-            limit += 1
-
-        return total_pv
     # --- HELPER: TÌM NGÀY TRẢ LÃI KẾ TIẾP ( > CURR ) ---
     def _get_next_coupon_date(self, start, end, freq, curr):
         s = (freq or "").lower()
