@@ -1,6 +1,6 @@
 from flask import jsonify, request
 
-class TransactionController:
+class TransactionController2:
     def __init__(self, service):
         self.service = service
 
@@ -17,7 +17,7 @@ class TransactionController:
         try:
             data = request.json
             result = self.service.add_transaction(data)
-            
+            print("Đang chạy controller system 2")
             if result.get("status") == "success":
                 return jsonify(result), 200
             else:

@@ -1,39 +1,11 @@
 from datetime import datetime
-from repository.transaction_repo import TransactionRepository
-from services.system_service import SystemService
+from repository.T2.transaction_repo import TransactionRepository2
+from services.T2.system_service import SystemService2
 
-class TransactionService:
-    def __init__(self, trans_repo: TransactionRepository, system_service: SystemService):
+class TransactionService2:
+    def __init__(self, trans_repo: TransactionRepository2, system_service: SystemService2):
         self.trans_repo = trans_repo
         self.system_service = system_service # Dùng service này để thao tác tiền Finsight
-
-    def get_user_dashboard(self, user_id="user_default", target_date_str=None):
-        # 1. Xử lý ngày xem
-        if not target_date_str:
-            target_date_str = datetime.now().strftime("%Y-%m-%d")
-
-        # 2. TÍNH TỔNG BALANCE (NET WORTH) TỪ FINSIGHT
-        # Hàm này đã cộng: Cash (trong DB) + Giá trị Asset (Tính theo giá ngày target_date)
-        total_balance = self.system_service.calculate_user_net_worth(user_id, target_date_str)
-
-        # 3. Lấy lịch sử giao dịch
-        all_transactions = self.trans_repo.get_transactions_by_user(user_id)
-        
-        # Filter: Chỉ lấy giao dịch <= ngày đang xem
-        history_display = [t for t in all_transactions if t.get("date_trans") <= target_date_str]
-        
-        # Sort: Mới nhất lên đầu
-        history_display.sort(key=lambda x: x.get('date_trans', ''), reverse=True)
-
-        return {
-            "balance": total_balance, # UI hiển thị số này là Tổng Tài Sản
-            "interest_rate": 4.0,     # Có thể lấy từ config
-            "history": history_display,
-            "view_date": target_date_str,
-            # Các trường phụ nếu UI cần (để trống hoặc tính toán nếu muốn)
-            "interest_today": 0,
-            "interest_month": 0
-        }
 
     def add_transaction(self, payload):
         user_id = payload.get("user_id", "user_default")
@@ -47,11 +19,11 @@ class TransactionService:
         try:
             # GỌI SYSTEM SERVICE ĐỂ XỬ LÝ LOGIC TIỀN
             if action == "NAP":
-                # Nạp thẳng vào Finsight Cash
+                # Nạp vào Tủ
                 return self.system_service.process_deposit(user_id, amount, date_trans)
             
             elif action == "RUT":
-                # Rút tiền (Smart Withdrawal: Cash -> Bán CD)
+                # Rút tiền từ tủ
                 return self.system_service.process_withdrawal(user_id, amount, date_trans)
             
             else:

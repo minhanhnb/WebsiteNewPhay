@@ -1,10 +1,10 @@
 from firebase_admin import firestore
 from models.T2.transaction import Transaction2
-
+from google.cloud.firestore_v1.base_query import FieldFilter
 class TransactionRepository2:
     def __init__(self):
         self.db = firestore.client()
-        self.collection = self.db.collection("transactions")
+        self.collection = self.db.collection("transactions2")
 
     def add_transaction(self, trans: Transaction2):
         try:
@@ -73,3 +73,34 @@ class TransactionRepository2:
             count += 1
             
         return net_amount, count
+    
+
+    def has_action_in_day(self, user_id, action_type, date_str):
+        """
+
+        Kiểm tra xem User có giao dịch loại 'action_type' trong ngày 'date_str' hay không.
+
+        Trả về True nếu có ít nhất 1 giao dịch, ngược lại False.
+
+        """
+        try:
+            print("Chạy vào được repo has action")
+            # Giả sử collection của bạn tên là 'transactions2'
+
+            # Truy vấn các bản ghi khớp user_id, action (RUT) và date_trans
+            query = self.db.collection('transactions2') \
+                .where('user_id', '==', user_id) \
+                .where('action_type', '==', action_type) \
+                .where('date_trans', '==', date_str) \
+                .limit(1) \
+                .get()
+
+            # Nếu list query không trống nghĩa là có giao dịch
+
+            return len(query) > 0
+
+        except Exception as e:
+
+            print(f"Error checking transaction history: {e}")
+
+            return False
