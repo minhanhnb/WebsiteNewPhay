@@ -7,9 +7,9 @@ document.addEventListener("DOMContentLoaded", () => {
         user: document.getElementById('user-data-container'),
         system: document.getElementById('finsight-data-container'),
         bank: document.getElementById('bank-data-container'),
-        queue: document.getElementById("queueContainer")
+        queue: document.getElementById("queueContainer"),
     };
-
+ 
     // Inputs
     const settleDateInput = document.getElementById("settleDateInput") || document.getElementById("settleDate");
     const viewDateInput = document.getElementById("viewDate");
@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const result = await res.json();
 
             if (res.ok && result.success) {
-                const { user, bank, finsight, queue } = result.data;
+                const { user, bank, finsight, queue, history } = result.data;
 
                 // --- LOGIC TỰ ĐỘNG CHỌN NGÀY THEO LỆNH NẠP (CASH_IN) ---
                 if (queue && queue.length > 0) {
@@ -92,7 +92,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 // --- RENDER DỮ LIỆU ---
-                renderUserWallet(user,result.data.performance.profit_today);
+                renderUserWallet(user, result.data.performance.profit_today, history);
                 renderSystemFund(finsight, result.data.total_balance_estimate);
                 renderBank(bank);
                 renderQueue(queue); 
@@ -111,18 +111,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 2. System Fund (4 Ô Vuông - All Black Text)
 function renderSystemFund(sys, total_balance_estimate) {
-    if (!sys ) return;
+    if (!sys) return;
 
-    // --- CHUẨN BỊ DỮ LIỆU ---
-
-    // 1. Data Kho Finsight
+    // --- 1. CHUẨN BỊ DỮ LIỆU ---
     const sysInventory = sys.inventory || [];
-    const totalSysInvValue = sysInventory.reduce((sum, item) => {
-        return sum + (item.giaTaiNgayXem * item.soLuong);
-    }, 0);
+    const totalSysInvValue = sysInventory.reduce((sum, item) => sum + (item.giaTaiNgayXem * item.soLuong), 0);
     const totalUserAssetValue = total_balance_estimate || 0;
+    
+    // TÍNH TỔNG TÀI SẢN USER (Tiền mặt + Giá trị tài sản)
+    const totalUserNetWorth = sys.user.cash + totalUserAssetValue;
 
-     // 1. Cập nhật invRows (Thêm padding cho các ô dữ liệu)
     const invRows = sysInventory.map(item => `
         <tr>
             <td class="fw-bold text-dark" style="font-size: 0.85rem; padding: 10px 4px;">${item.maCD}</td>
@@ -131,11 +129,9 @@ function renderSystemFund(sys, total_balance_estimate) {
         </tr>
     `).join('');
 
-    // 2. Data Tài sản User
-   // const totalUserAssetValue = sys.total_asset_value || 0;
     let userRows = '';
     if (sys.user.assets && sys.user.assets.length > 0) {
-        userRows =sys.user.assets.map(a => `
+        userRows = sys.user.assets.map(a => `
             <tr>
                 <td class="fw-bold text-dark" style="font-size: 0.85rem;">${a.maCD}</td>
                 <td class="text-end text-dark" style="font-size: 0.85rem;">${a.soLuong}</td>
@@ -144,10 +140,9 @@ function renderSystemFund(sys, total_balance_estimate) {
     const userTableContent = userRows.length > 0 ? userRows : '<tr><td colspan="2" class="text-center small text-dark">Không có tài sản</td></tr>';
 
 
-    // --- TẠO HTML CÁC CARD (Sử dụng text-dark cho màu đen) ---
+    // --- 2. TẠO HTML CÁC CARD ---
 
-    // Card 1: Tiền Finsight (Hàng 1 - Trái)
-    // Lưu ý: Tôi viết HTML trực tiếp thay vì createCard để kiểm soát màu sắc tuyệt đối
+    // Nhóm 1: Finsight Core
     const cardFinsightCash = `
         <div class="stat-card">
             <div class="stat-label text-dark fw-bold">Tiền Finsight</div>
@@ -155,37 +150,29 @@ function renderSystemFund(sys, total_balance_estimate) {
         </div>
     `;
 
-    // Card 2: Tài sản Finsight (Hàng 1 - Phải)
-   
-
-    // 2. Cập nhật cardFinsightAssets
     const cardFinsightAssets = `
         <div class="stat-card">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <div class="stat-label text-dark fw-bold">Tài sản Finsight</div>
-                    <div class="stat-value text-dark">${formatMoney(totalSysInvValue)}</div>
-                </div>
-            </div>
-            
-            <div class="mt-3 pt-2 border-top" style="max-height: 140px; width: 100%; overflow-y: auto;">
-                
+            <div class="stat-label text-dark fw-bold">Tài sản Finsight</div>
+            <div class="stat-value text-dark">${formatMoney(totalSysInvValue)}</div>
+            <div class="mt-3 pt-2 border-top" style="max-height: 140px; overflow-y: auto;">
                 <table class="table table-borderless table-minimal mb-0 w-100">
                     <thead class="text-dark small border-bottom">
-                        <tr>
-                            <th style="padding: 10px 4px;">Mã</th>
-                            <th class="text-end" style="padding: 8px 4px;">SL</th>
-                            <th class="text-end" style="padding: 10px 4px;">Giá ngày xem</th>
-                        </tr>
+                        <tr><th>Mã</th><th class="text-end">SL</th><th class="text-end">Giá</th></tr>
                     </thead>
-                    <tbody>
-                        ${invRows.length > 0 ? invRows : '<tr><td colspan="3" class="text-center small text-dark py-3">Kho trống</td></tr>'}
-                    </tbody>
+                    <tbody>${invRows.length > 0 ? invRows : '<tr><td colspan="3" class="text-center py-3">Kho trống</td></tr>'}</tbody>
                 </table>
             </div>
         </div>
     `;
-    // Card 3: Tiền User (Hàng 2 - Trái)
+
+    // Nhóm 2: User Portfolio (Với thẻ TỔNG nằm trên)
+    const cardUserTotal = `
+        <div class="stat-card" style="grid-column: 1 / -1; background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+            <div class="stat-label text-primary fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Tổng tài sản User (Tiền + CD)</div>
+            <div class="stat-value text-dark fw-bold" style="font-size: 1.6rem;">${formatMoney(totalUserNetWorth)}</div>
+        </div>
+    `;
+
     const cardUserCash = `
         <div class="stat-card">
             <div class="stat-label text-dark fw-bold">Tiền User</div>
@@ -193,24 +180,14 @@ function renderSystemFund(sys, total_balance_estimate) {
         </div>
     `;
 
-    // Card 4: Tài sản User (Hàng 2 - Phải)
-    // Đã xóa style="grid-column: 1 / -1;" để nó thành ô vuông nhỏ
     const cardUserAssets = `
         <div class="stat-card">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <div class="stat-label text-dark fw-bold">Tài sản User</div>
-                    <div class="stat-value text-dark">${formatMoney(totalUserAssetValue)}</div>
-                </div>
-            </div>
-            
+            <div class="stat-label text-dark fw-bold">Tài sản User</div>
+            <div class="stat-value text-dark">${formatMoney(totalUserAssetValue)}</div>
             <div class="mt-3 pt-2 border-top" style="max-height: 120px; overflow-y: auto;">
                 <table class="table table-sm table-borderless table-minimal mb-0">
                     <thead class="text-dark small border-bottom">
-                        <tr>
-                            <th>Mã</th>
-                            <th class="text-end">SL</th>
-                        </tr>
+                        <tr><th>Mã</th><th class="text-end">SL</th></tr>
                     </thead>
                     <tbody>${userTableContent}</tbody>
                 </table>
@@ -218,11 +195,11 @@ function renderSystemFund(sys, total_balance_estimate) {
         </div>
     `;
 
-    // --- RENDER RA GIAO DIỆN ---
-    // Thứ tự: Hàng 1 (FS Cash, FS Asset) -> Hàng 2 (User Cash, User Asset)
+    // --- 3. RENDER RA GIAO DIỆN ---
     containers.system.innerHTML = `
         ${cardFinsightCash}
         ${cardFinsightAssets}
+        ${cardUserTotal}
         ${cardUserCash}
         ${cardUserAssets}
     `;
@@ -408,7 +385,7 @@ function renderSystemFund(sys, total_balance_estimate) {
 
    
     // 1. User Wallet & Profit Structure (Render khung HTML cho cả 2 thẻ)
-function renderUserWallet(user, profit) {
+function renderUserWallet(user, profit, history) {
     if (!user) return;
     
     // Card 1: Số dư Ví (Dùng hàm createCard có sẵn)
@@ -424,11 +401,54 @@ function renderUserWallet(user, profit) {
             </div>
         </div>
     `;
+    
+    const historyRows = (history || []).map(item => {
+    // 1. Định nghĩa cấu hình cho từng loại giao dịch (Dễ dàng thêm mới tại đây)
+    const TYPE_CONFIG = {
+        'NAP':     { label: 'Nạp tiền', cls: 'text-success', badge: 'bg-light text-success', sign: '+' },
+        'RUT':     { label: 'Rút tiền', cls: 'text-danger',  badge: 'bg-light text-danger',  sign: '-' },
+        'TIENLAI': { label: 'Tiền lãi', cls: 'text-primary', badge: 'bg-light text-primary', sign: '+' },
+        'DEFAULT': { label: 'Giao dịch',  cls: 'text-muted',   badge: 'bg-light text-muted',   sign: ''  }
+    };
 
-    containers.user.innerHTML = `
-        ${walletCardHtml}
-        ${profitCardHtml}
-    `;
+    // 2. Lấy type hiện tại và đối chiếu cấu hình
+    const typeKey = item.action_type || item.action;
+    const cfg = TYPE_CONFIG[typeKey] || TYPE_CONFIG['DEFAULT'];
+
+
+    return `
+        <tr>
+            <td class="small text-muted">${item.date_trans}</td>
+            <td>
+                <span class="badge ${cfg.badge}">${cfg.label}</span>
+            </td>
+            <td class="${cfg.cls} fw-bold text-end">
+                ${cfg.sign} ${formatMoney(item.amount)}
+            </td>
+            <td class="text-center">
+              
+            </td>
+        </tr>`;
+   }).join('');
+    const historyCardHtml = `
+        <div class="stat-card" style="grid-column: 1 / -1; margin-top: 15px;">
+            <div class="stat-label text-dark fw-bold mb-3">Lịch sử giao dịch</div>
+            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                <table class="table table-sm table-hover table-minimal mb-0">
+                    <thead class="sticky-top bg-white">
+                        <tr class="small text-muted">
+                            <th>NGÀY</th><th>LOẠI</th><th class="text-end">SỐ TIỀN</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${historyRows || '<tr><td colspan="4" class="text-center py-3 text-muted">Chưa có giao dịch</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+
+    // Đẩy vào container
+    containers.user.innerHTML = walletCardHtml + profitCardHtml + historyCardHtml;
 }
 
 // 2. Daily Profit Logic (Update dữ liệu vào ô vuông thứ 2)

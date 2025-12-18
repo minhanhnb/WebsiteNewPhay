@@ -61,7 +61,22 @@ class SystemService2:
             "details": data.get("details") if data.get("details") else getattr(doc, 'details', None),
         } 
             queue_list.append(item)
-       
+
+
+        raw_transactions = self.transaction_repo.get_transactions_by_user(user_id)
+    
+        # 3. Format lại history để Frontend dễ dùng (Clean Data)
+        history_data = []
+        for doc in raw_transactions:
+            # Sử dụng logic lấy ID an toàn chúng ta đã bàn
+            data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
+            history_data.append({
+                "id": doc.id if hasattr(doc, 'id') else data.get('id'),
+                "date_trans": data.get("date_trans"),
+                "action_type": data.get("action_type") or data.get("action"),
+                "amount": data.get("amount", 0),
+                "status": data.get("status")
+            })
 
         return {
             "user": user_data,
@@ -69,6 +84,7 @@ class SystemService2:
                 "profit_today": daily_profit_total,
                 "last_updated": datetime.now().strftime("%H:%M:%S")
             },
+            "history": history_data, 
             "finsight": finsight_data,
             "bank": bank_data.to_dict(),
             "queue": queue_list,
