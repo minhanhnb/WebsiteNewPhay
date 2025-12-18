@@ -92,8 +92,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 // --- RENDER DỮ LIỆU ---
-                renderUserWallet(user, result.data.total_balance_estimate, result.data.performance.profit_today);
-                renderSystemFund(finsight);
+                renderUserWallet(user,result.data.performance.profit_today);
+                renderSystemFund(finsight, result.data.total_balance_estimate);
                 renderBank(bank);
                 renderQueue(queue); 
                 // renderDailyProfit(result.data.performance); // Nếu có hàm này
@@ -110,7 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // 2. System Fund (4 Ô Vuông - All Black Text)
-function renderSystemFund(sys) {
+function renderSystemFund(sys, total_balance_estimate) {
     if (!sys ) return;
 
     // --- CHUẨN BỊ DỮ LIỆU ---
@@ -120,6 +120,7 @@ function renderSystemFund(sys) {
     const totalSysInvValue = sysInventory.reduce((sum, item) => {
         return sum + (item.giaTaiNgayXem * item.soLuong);
     }, 0);
+    const totalUserAssetValue = total_balance_estimate || 0;
 
      // 1. Cập nhật invRows (Thêm padding cho các ô dữ liệu)
     const invRows = sysInventory.map(item => `
@@ -199,7 +200,7 @@ function renderSystemFund(sys) {
             <div class="d-flex justify-content-between align-items-start">
                 <div>
                     <div class="stat-label text-dark fw-bold">Tài sản User</div>
-                    <div class="stat-value text-dark"></div>
+                    <div class="stat-value text-dark">${formatMoney(totalUserAssetValue)}</div>
                 </div>
             </div>
             
@@ -329,7 +330,7 @@ function renderSystemFund(sys) {
         const details = item.details || {};
 
         // CASE 1: BÁN CD
-        if (item.type === 'LIQUIDATE_CD') {
+        if (item.type === 'SYNC_LIQUIDATE_CD') {
             displayType = 'User bán CD'; 
             displayClass = 'q-liq'; 
             
@@ -341,7 +342,7 @@ function renderSystemFund(sys) {
         } 
         
         // CASE 2: PHÂN BỔ
-        else if (item.type === 'ALLOCATION_ASSET_DELIVERED') {
+        else if (item.type === 'SYNC_AUTO_ALLOCATED') {
             displayType = 'User Mua CD'; 
             displayClass = 'q-alloc'; 
             
@@ -407,12 +408,12 @@ function renderSystemFund(sys) {
 
    
     // 1. User Wallet & Profit Structure (Render khung HTML cho cả 2 thẻ)
-function renderUserWallet(user, totalEst, profit) {
+function renderUserWallet(user, profit) {
     if (!user) return;
     
     // Card 1: Số dư Ví (Dùng hàm createCard có sẵn)
     // Giả sử createCard trả về string HTML class="stat-card"
-    const walletCardHtml = createCard('Số dư Ví', totalEst, true);
+    const walletCardHtml = createCard('Số dư Ví', user.cash, true);
 
     // Card 2: Tiền lời hôm nay (Cấu trúc tương tự stat-card để thành ô vuông)
     const profitCardHtml = `

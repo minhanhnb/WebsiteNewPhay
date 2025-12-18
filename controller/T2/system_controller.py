@@ -115,15 +115,21 @@ class SystemController2:
             # Gọi Service truyền thêm date_str
             result = self.service.sync_wallet_state_with_drawer(user_id,date_str)
             
+            status = result.get('status', 'error')
+            
             return jsonify({
-                "success": result['status'] == 'success',
-                "message": result['message'],
-                "data": result.get('details', [])
+                "success": status == 'success',
+                "case": result.get('case'), # Trả về case để Frontend dễ xử lý UI
+                "data": result.get('actions', [])
             }), 200
-        except Exception as e:
-            print(f"Error Allocating: {e}")
-            return jsonify({"success": False, "message": str(e)}), 500
 
+        except Exception as e:
+            # Log lỗi chi tiết ra console của Server để bạn dễ debug
+            print(f"Critical Controller Error [sync_Diff]: {str(e)}")
+            return jsonify({
+                "success": False, 
+                "message": f"Lỗi thực thi Controller: {str(e)}"
+            }), 500
 
     def withdraw_money(self):
         try:
