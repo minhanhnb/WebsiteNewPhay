@@ -108,3 +108,45 @@
     font-size: 20px;
     cursor: pointer;
 }
+
+.btn-delete {
+    margin-left: auto; 
+    background-color: #ef4444; /* Màu đỏ */
+    color: white;
+    border: 1px solid #dc2626;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+.btn-delete:hover {
+    background-color: #a81616;
+    box-shadow: 0 4px 6px rgba(220, 38, 38, 0.2);
+    transform: translateY(-1px);
+}
+
+.btn-view {
+    margin-left: auto; 
+    background-color: #4016ff; /* Màu đỏ */
+    color: white;
+    border: 1px solid #11206a;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+.btn-view:hover {
+    background-color: #300ec4;
+    box-shadow: 0 4px 6px rgba(38, 87, 220, 0.2);
+    transform: translateY(-1px);
+}
+
+.page-header {
+  display: flex;
+  align-items: center;      /* canh giữa theo chiều dọc */
+  justify-content: space-between;
+}
+
+.title {
+  margin: 0;
+}

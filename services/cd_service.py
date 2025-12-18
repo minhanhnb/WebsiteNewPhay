@@ -214,3 +214,20 @@ class CDService:
             except ValueError:
                 continue
         return None
+
+
+    def delete_asset_logic(self, asset_id):
+        print("Vào được service")
+        # 1. Kiểm tra tài sản có tồn tại không
+        asset = self.repo.get_cd_by_id(asset_id)
+        print("tồn tại",asset)
+        if not asset:
+            return False, "Tài sản không tồn tại hoặc đã bị xóa trước đó."
+
+        # 2. Logic kiểm tra (Ví dụ: Không cho xóa nếu số lượng > 0)
+        # data = asset.to_dict()
+        # if data.get('soLuong', 0) > 0:
+        #    return False, "Không thể xóa tài sản vẫn còn số lượng trong kho."
+
+        # 3. Thực hiện xóa
+        return self.repo.delete_asset(asset_id)

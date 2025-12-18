@@ -79,6 +79,7 @@
     user-select: none;
 }
 
+
 /* Hiệu ứng khi chọn Nạp */
 #actNap:checked + .btn-nap {
     background-color: #27ae60; /* Màu xanh lá */
@@ -187,6 +188,21 @@
 }
 
 /* Thêm vào static/css/ttt_dashboard.css */
+.btn-reset {
+    background:  #e74c3c;
+    border: none;
+    color: #ffffff; /* Màu đỏ */
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 5px 10px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.btn-reset:hover {
+    background: #800b0b;
+    color: #ffffff;
+}
 
 .btn-delete {
     background: none;

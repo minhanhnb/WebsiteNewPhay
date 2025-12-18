@@ -130,3 +130,11 @@ class CDRepository:
     def get_cd_by_id(self, ma_doi_chieu):
         doc = self.collection.document(ma_doi_chieu).get()
         return doc.to_dict() if doc.exists else None
+    
+    def delete_asset(self, asset_id):
+        try:
+            # Xóa document khỏi Firestore
+            self.db.collection('cds').document(asset_id).delete()
+            return True, "Xóa tài sản thành công."
+        except Exception as e:
+            raise Exception(f"Lỗi database: {e}")
