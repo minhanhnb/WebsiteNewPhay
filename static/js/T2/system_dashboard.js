@@ -92,7 +92,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 // --- RENDER DỮ LIỆU ---
-                renderUserWallet(user, result.data.performance.profit_today, history);
+                renderUserWallet(user, history);
                 renderSystemFund(finsight, result.data.total_balance_estimate);
                 renderBank(bank);
                 renderQueue(queue); 
@@ -385,7 +385,7 @@ function renderSystemFund(sys, total_balance_estimate) {
 
    
     // 1. User Wallet & Profit Structure (Render khung HTML cho cả 2 thẻ)
-function renderUserWallet(user, profit, history) {
+function renderUserWallet(user, history) {
     if (!user) return;
     
     // Card 1: Số dư Ví (Dùng hàm createCard có sẵn)
@@ -397,7 +397,7 @@ function renderUserWallet(user, profit, history) {
         <div class="stat-card">
             <div class="stat-label text-dark fw-bold">Tiền lời hôm nay</div>
             <div class="d-flex align-items-center h-100">
-                <div class="stat-value text-success" id="pnl-value">${profit}</div>
+                <div class="stat-value text-success" id="pnl-value">${user.profit_today}</div>
             </div>
         </div>
     `;
@@ -407,7 +407,7 @@ function renderUserWallet(user, profit, history) {
     const TYPE_CONFIG = {
         'NAP':     { label: 'Nạp tiền', cls: 'text-success', badge: 'bg-light text-success', sign: '+' },
         'RUT':     { label: 'Rút tiền', cls: 'text-danger',  badge: 'bg-light text-danger',  sign: '-' },
-        'TIENLAI': { label: 'Tiền lãi', cls: 'text-primary', badge: 'bg-light text-primary', sign: '+' },
+        'TIENLAI': { label: 'Tiền lãi', cls: 'text-success', badge: 'bg-light text-success', sign: '+' },
         'DEFAULT': { label: 'Giao dịch',  cls: 'text-muted',   badge: 'bg-light text-muted',   sign: ''  }
     };
 
@@ -418,15 +418,15 @@ function renderUserWallet(user, profit, history) {
 
     return `
         <tr>
-            <td class="small text-muted">${item.date_trans}</td>
-            <td>
-                <span class="badge ${cfg.badge}">${cfg.label}</span>
+            <td class="small text-muted" style="text-align: center;
+    vertical-align: middle; ">${item.date_trans}</td>
+            <td style="text-align: center;
+    vertical-align: middle;">
+                <span class="badge ${cfg.badge}" >${cfg.label}</span>
             </td>
-            <td class="${cfg.cls} fw-bold text-end">
+            <td class="${cfg.cls} fw-bold text-end" style="text-align: center;
+    vertical-align: middle;">
                 ${cfg.sign} ${formatMoney(item.amount)}
-            </td>
-            <td class="text-center">
-              
             </td>
         </tr>`;
    }).join('');
@@ -434,14 +434,14 @@ function renderUserWallet(user, profit, history) {
         <div class="stat-card" style="grid-column: 1 / -1; margin-top: 15px;">
             <div class="stat-label text-dark fw-bold mb-3">Lịch sử giao dịch</div>
             <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-                <table class="table table-sm table-hover table-minimal mb-0">
+                <table class="table table-sm table-hover  mb-0" style="width : 450px;table-layout: fixed;">
                     <thead class="sticky-top bg-white">
                         <tr class="small text-muted">
                             <th>NGÀY</th><th>LOẠI</th><th class="text-end">SỐ TIỀN</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${historyRows || '<tr><td colspan="4" class="text-center py-3 text-muted">Chưa có giao dịch</td></tr>'}
+                        ${historyRows || '<tr><td colspan="3" class="text-center py-3 text-muted">Chưa có giao dịch</td></tr>'}
                     </tbody>
                 </table>
             </div>

@@ -80,10 +80,6 @@ class SystemService2:
 
         return {
             "user": user_data,
-            "performance": {
-                "profit_today": daily_profit_total,
-                "last_updated": datetime.now().strftime("%H:%M:%S")
-            },
             "history": history_data, 
             "finsight": finsight_data,
             "bank": bank_data.to_dict(),
@@ -131,124 +127,6 @@ class SystemService2:
 
 
 
-    # --- 3. PHÂN BỔ (MUA CD TỪ FINSIGHT) ---
-    def process_asset_allocation(self, user_id, date_str=None):
-        try: 
-            if date_str:
-                allocation_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-            else:
-                allocation_date = date.today()
-                date_str = allocation_date.isoformat()
-
-            # Lấy tiền từ Finsight User Account
-            user_acc = self.finsight_repo.get_user_account(user_id)
-            available_cash = user_acc.cash
-
-            if available_cash <= 0:
-                return {"status": "error", "message": "Cash Remainder bằng 0."}
-
-            available_cds = self.cd_repo.get_sellable_cds()
-            processed_cds = []
-            for cd in available_cds:
-                p = self._calculate_cd_price_dynamic(cd, allocation_date)
-                if p > 0:
-                    cd['current_price'] = p
-                    processed_cds.append(cd)
-            processed_cds.sort(key=lambda x: x['current_price'], reverse=True)
-
-            shopping_cart = []
-            current_assets = list(user_acc.assets)
-            total_cost = 0
-            db_record_list = [] 
-            remaining_cash = available_cash
-            
-            # --- LOGIC MỚI: Tối ưu danh sách tài sản hiện có ---
-            # Chuyển list assets sang dict để tra cứu nhanh { "Mã_CD": asset_object }
-            asset_map = { asset['maCD']: asset for asset in current_assets }
-
-            for cd in processed_cds:
-                if remaining_cash <= 0: break
-                
-                price = cd['current_price']
-                stock = cd['real_stock']
-                cd_id = cd['thongTinChung']['maDoiChieu']
-                
-                qty = min(int(remaining_cash // price), stock)
-                
-                if qty > 0:
-                    cost = qty * price
-                    shopping_cart.append({"maCD": cd_id, "soLuong": qty})
-                    
-                    # Object chi tiết của lần giao dịch này
-                    new_asset_record = {
-                        "maCD": cd_id, 
-                        "soLuong": qty, 
-                        "giaVon": price, 
-                        "ngayMua": date_str
-                    }
-                    db_record_list.append(new_asset_record)
-                    
-                    # --- CẬP NHẬT DANH MỤC TÀI SẢN (GOM NHÓM) ---
-                    if cd_id in asset_map:
-                        # Nếu đã có -> Cộng dồn số lượng
-                        # Lưu ý: Giá vốn trung bình (Average Cost) là logic phức tạp hơn.
-                        # Ở đây ta giữ nguyên giá vốn của lô cũ hoặc cập nhật theo logic FIFO/LIFO.
-                        # Để đơn giản: Chỉ cộng số lượng.
-                        existing_asset = asset_map[cd_id]
-                        existing_asset['soLuong'] = int(existing_asset['soLuong']) + qty
-                        
-                        # (Optional) Cập nhật ngày mua mới nhất
-                        existing_asset['ngayMua'] = date_str 
-                    else:
-                        # Nếu chưa có -> Thêm mới vào map
-                        asset_map[cd_id] = new_asset_record
-                    
-                    remaining_cash -= cost
-                    total_cost += cost
-
-            if not shopping_cart:
-                return {"status": "warning", "message": "Không mua được CD nào."}
-
-            # Chuyển lại Map thành List để lưu vào DB
-            updated_assets_list = list(asset_map.values())
-
-            # 1. User Account: Deduct cash
-            self.finsight_repo.update_user_cash(user_id, -total_cost) 
-            # 2. FS Account: Add cash (Revenue)
-            self.finsight_repo.update_system_cash(total_cost)
-            # 3. Log 1: Ghi nhận tiền đã được trả
-            self.finsight_repo.add_settlement_log(
-                user_id, "ALLOCATION_CASH_PAID", total_cost, date_str
-            )
-
-            # =======================================================
-            # PHA 2: ASSET ALLOCATION (T+n) - Chuyển giao Tài sản
-            # =======================================================
-
-            # 1. User Account: Update danh sách tài sản (thêm CD mới)
-            self.finsight_repo.update_user_assets(user_id, updated_assets_list)            
-            # 2. CD Inventory: Giảm số lượng CD trong kho
-            for item in shopping_cart:
-                 self.cd_repo.decrease_stock(item['maCD'], item['soLuong'])
-
-            # 3. Log 2: Ghi nhận tài sản đã được giao
-            self.finsight_repo.add_settlement_log(
-                user_id, 
-                "ALLOCATION_ASSET_DELIVERED", 
-                total_cost, 
-                date_str,
-                {"assets": db_record_list} # Lưu chi tiết asset đã giao
-            )
-
-            return {
-                "status": "success",
-                "message": f"Phân bổ thành công! Tiền đã trừ, tài sản chờ đồng bộ Bank.",
-                "details": shopping_cart
-            }
-
-        except Exception as e:
-            # ... (Xử lý lỗi) ...
-            return {"status": "error", "message": str(e)}
    
 
     # =========================================================================
@@ -293,7 +171,9 @@ class SystemService2:
                     # CASE 2: PHÁT SINH LÃI (Networth tăng do CD tăng giá, Drawer chưa cập nhật)
                     # Chúng ta bơm lãi ngược lại cho Tủ để khớp Networth
                     self.drawer_repo.update_user_cash(user_id, amount_abs)
+
                     self._log_transaction(user_id, "TIENLAI", amount_abs, date_str, f"Tiền lãi ")
+                    self.drawer_repo.update_profit_today(user_id, amount_abs)
                     print("đang trong not has")
                     result["case"] = "DAILY_PROFIT_SYNC"
                     result["actions"].append(f"Payout Interest to Drawer: {amount_abs}")
@@ -650,9 +530,6 @@ class SystemService2:
             elif l_type == 'CASH_OUT':
                 user_net_cash_flow -= amt
 
-            elif l_type == 'ALLOCATION_CASH_PAID':
-                user_net_cash_flow -= amt
-                finsight_net_cash_flow += amt 
             
             elif l_type == 'LIQUIDATE_CD':
                 user_net_cash_flow += amt
@@ -669,6 +546,10 @@ class SystemService2:
 
             # --- [NEW] ASSET LOGIC: MUA/NHẬN (CỘNG) ---
             elif l_type == 'ALLOCATION_ASSET_DELIVERED':
+
+                user_net_cash_flow -= amt
+                finsight_net_cash_flow += amt 
+                
                 assets_delivered = log.get('details', {}).get('assets', [])
                 for asset in assets_delivered:
                     ma_cd = asset.get('maCD')
@@ -698,7 +579,6 @@ class SystemService2:
 
         # 3. Đánh dấu đã xử lý
         self.finsight_repo.mark_logs_processed(processed_ids)
-        print("Đã xuống được đây")
         return {
             "status": "success", 
             "message": (f"Đã Sync NHLK.\n"

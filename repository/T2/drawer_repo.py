@@ -18,9 +18,10 @@ class DrawerRepository(BaseRepository):
             return Drawer(
                 user_id=data.get('user_id'),
                 cash=data.get('cash', 0),
+                profit_today= data.get('profit_today',0)
             )
         # Nếu chưa có -> Trả về User mới (Cash=0)
-        return Drawer(user_id=user_id, cash=0)
+        return Drawer(user_id=user_id, cash=0, profit_today=0)
     
     def update_user_cash(self, user_id, amount_delta):
         """Cập nhật Cash Remainder của User"""
@@ -35,5 +36,20 @@ class DrawerRepository(BaseRepository):
             new_user = Drawer(user_id, cash=amount_delta)
             doc_ref.set(new_user.to_dict())
 
-  
+    def update_profit_today(self, user_id, amount_delta):
+            """Cập nhật Cash Remainder của User"""
+            doc_ref = self.drawer.document(user_id)
+            try:
+                doc_ref.update({
+                    "profit_today": firestore.Increment(amount_delta),
+                    "last_updated": firestore.SERVER_TIMESTAMP
+                })
+            except Exception:
+                # Tạo mới nếu chưa tồn tại
+                new_user = Drawer(user_id, cash =0,profit_today=amount_delta)
+                doc_ref.set(new_user.to_dict())
+
+    
+
+
 
