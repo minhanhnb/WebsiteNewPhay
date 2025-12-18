@@ -330,7 +330,7 @@ function renderSystemFund(sys, total_balance_estimate) {
         const details = item.details || {};
 
         // CASE 1: BÁN CD
-        if (item.type === 'SYNC_LIQUIDATE_CD') {
+        if (item.type === 'LIQUIDATE_CD') {
             displayType = 'User bán CD'; 
             displayClass = 'q-liq'; 
             
@@ -342,7 +342,7 @@ function renderSystemFund(sys, total_balance_estimate) {
         } 
         
         // CASE 2: PHÂN BỔ
-        else if (item.type === 'SYNC_AUTO_ALLOCATED') {
+        else if (item.type === 'ALLOCATION_ASSET_DELIVERED') {
             displayType = 'User Mua CD'; 
             displayClass = 'q-alloc'; 
             

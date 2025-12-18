@@ -50,13 +50,18 @@ class SystemService2:
         finsight_data['user'] = user_fund.to_dict()
         finsight_data['inventory'] = processed_inventory
         print(finsight_data)
-        queue_list = [{
-            "id": doc.get("id"),
-            "type": doc.get("type"),
-            "amount": doc.get("amount", 0),
-            "created_at": doc.get("created_at"),
-            "details": doc.get("details", {}) 
-        } for doc in pending_docs]
+        queue_list =[]
+        for doc in pending_docs: 
+            data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
+            item = {
+            "id": data.get("id") if data.get("id") else getattr(doc, 'id', None),
+            "type": data.get("type") if data.get("type") else getattr(doc, 'type', None),
+            "amount": data.get("amount") if data.get("amount") else getattr(doc, 'amount', None),
+            "created_at": data.get("created_at") if data.get("created_at") else getattr(doc, 'created_at', None),
+            "details": data.get("details") if data.get("details") else getattr(doc, 'details', None),
+        } 
+            queue_list.append(item)
+       
 
         return {
             "user": user_data,
@@ -261,23 +266,26 @@ class SystemService2:
             # XỬ LÝ KHI DIFF < 0 (Drawer thấp hơn hoặc Finsight tăng nhanh hơn do lãi)
             elif diff < 0:
                 amount_abs = abs(diff)
-                
+                print("Chạy được vào diff < 0")
                 # Kiểm tra lịch sử giao dịch rút tiền trong ngày (Query Repo)
                 # Giả sử repo có hàm trả về list hoặc count giao dịch rút
                 has_withdrawal = self.transaction_repo.has_action_in_day(user_id, "RUT", date_str)
+                print("Đã chạy và has withdrawal")
+                print(has_withdrawal)
 
                 if not has_withdrawal:
                     # CASE 2: PHÁT SINH LÃI (Networth tăng do CD tăng giá, Drawer chưa cập nhật)
                     # Chúng ta bơm lãi ngược lại cho Tủ để khớp Networth
                     self.drawer_repo.update_user_cash(user_id, amount_abs)
                     self._log_transaction(user_id, "TIENLAI", amount_abs, date_str, f"Tiền lãi ")
-                    
+                    print("đang trong not has")
                     result["case"] = "DAILY_PROFIT_SYNC"
                     result["actions"].append(f"Payout Interest to Drawer: {amount_abs}")
                     return {**result, "status": "success"}
                 
                 else:
                     # CASE 3: USER RÚT TIỀN (Drawer đã giảm tiền, Finsight cần giảm theo)
+                    print("Case 3: User rút tiền")
                     self._sync_drain_funds(user_id, amount_abs, date_str)
                     
                     result["case"] = "USER_WITHDRAWAL"
@@ -380,7 +388,7 @@ class SystemService2:
 
                 # Log riêng cho Sync
                 self.finsight_repo.add_settlement_log(
-                    user_id, "SYNC_AUTO_ALLOCATED", total_cost, date_str, {"assets": db_record_list}
+                    user_id, "ALLOCATION_ASSET_DELIVERED", total_cost, date_str, {"assets": db_record_list}
                 )
                 return {
                     "status": "success",
@@ -461,11 +469,11 @@ class SystemService2:
             # Log Sync
             if assets_to_sell:
                 self.finsight_repo.add_settlement_log(
-                    user_id, "SYNC_LIQUIDATE_CD", cash_raised, date_str, {"sold": assets_to_sell}
+                    user_id, "LIQUIDATE_CD", cash_raised, date_str, {"sold": assets_to_sell}
                 )
             
             # Vẫn log Cash Out dòng tiền tổng
-            self.finsight_repo.add_settlement_log(user_id, "SYNC_CASH_OUT", amount, date_str)
+            self.finsight_repo.add_settlement_log(user_id, "CASH_OUT", amount, date_str)
             return {"status": "success", "message": "Rút tiền & Thanh khoản thành công"}
         except Exception as e:
             return {"status": "error", "message": str(e)}
@@ -602,6 +610,7 @@ class SystemService2:
             return {"status": "error", "message": str(e)}
         
     def sync_batch_to_bank(self):
+        print("Đang vào sync bank")
         logs = self.finsight_repo.get_pending_logs()
         processed_ids = []
         
@@ -614,10 +623,10 @@ class SystemService2:
         asset_changes_map = {} 
 
         for doc in logs:
-            log = doc.to_dict()
+            log = doc.to_dict() if hasattr(doc, 'to_dict') else doc
             l_type = log.get('type')
             amt = float(log.get('amount', 0))
-            
+            print("vào được vòng lặp")
             # --- A. CASH FLOW LOGIC (Giữ nguyên logic đúng của bạn) ---
             if l_type == 'CASH_IN':
                 user_net_cash_flow += amt
@@ -673,7 +682,7 @@ class SystemService2:
 
         # 3. Đánh dấu đã xử lý
         self.finsight_repo.mark_logs_processed(processed_ids)
-        
+        print("Đã xuống được đây")
         return {
             "status": "success", 
             "message": (f"Đã Sync NHLK.\n"

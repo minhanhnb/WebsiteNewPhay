@@ -109,13 +109,17 @@ class SystemService:
         print(processed_inventory)
         finsight_data = system_fund.to_dict()
         finsight_data['inventory'] = processed_inventory
-        queue_list = [{
-            "id": doc.get("id"),
-            "type": doc.get("type"),
-            "amount": doc.get("amount", 0),
-            "created_at": doc.get("created_at"),
-            "details": doc.get("details", {}) # Quan trọng: Cần lấy thêm details để hiển thị Asset Name ở Frontend
-        } for doc in pending_docs]
+        queue_list =[]
+        for doc in pending_docs: 
+            data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
+            item = {
+            "id": data.get("id") if data.get("id") else getattr(doc, 'id', None),
+            "type": data.get("type") if data.get("type") else getattr(doc, 'type', None),
+            "amount": data.get("amount") if data.get("amount") else getattr(doc, 'amount', None),
+            "created_at": data.get("created_at") if data.get("created_at") else getattr(doc, 'created_at', None),
+            "details": data.get("details") if data.get("details") else getattr(doc, 'details', None),
+        } 
+        queue_list.append(item)
 
         return {
             "user": user_data,

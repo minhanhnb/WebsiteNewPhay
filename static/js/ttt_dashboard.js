@@ -5,6 +5,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const elTableBody = document.getElementById("historyBody");
     const elViewDate = document.getElementById("viewDate");
     const form = document.getElementById("transForm");
+
+    const btnReset = document.getElementById("btnResetData");
     
     // Default Date
     const transDateInput = document.getElementById("transDate");
@@ -229,6 +231,36 @@ if (form) {
             if (val) e.target.value = new Intl.NumberFormat('vi-VN').format(parseInt(val));
         });
     }
+ 
+      // --- BUTTON ACTIONS ---
+    // 1. Tối ưu hàm callApi: Trả về dữ liệu, không xử lý UI/Logic riêng lẻ bên trong
+async function callApi(url, body) {
+    const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+    return await res.json();
+}
+
+// 2. Gắn sự kiện Reset với xử lý tập trung
+btnReset?.addEventListener("click", async () => {
+    if (!confirm("⚠️ NGUY HIỂM: Xác nhận xóa toàn bộ dữ liệu?")) return;
+    if (!confirm("Xác nhận lần cuối: Hành động này không thể hoàn tác.")) return;
+
+
+        btnReset.disabled = true;
+        const originalText = btnReset.innerText;
+        btnReset.innerText = "⏳ Đang Reset...";
+
+        // Thực hiện gọi song song
+        const results = await Promise.allSettled([
+            callApi("/system2/api/reset", {}),
+            callApi("/system/api/reset", {})
+        ]);
+        window.location.reload();
+});
  
     
 
