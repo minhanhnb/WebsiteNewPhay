@@ -26,7 +26,8 @@ app.register_blueprint(system_bp)
 from routes.T2.system_routes import system2_bp
 app.register_blueprint(system2_bp)
 
-
+from routes.config_routes import config_bp 
+app.register_blueprint(config_bp)
 # Test route
 @app.route("/test")
 def test_firebase():

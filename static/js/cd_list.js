@@ -88,7 +88,31 @@ document.addEventListener("click", function (e) {
         window.location.href = `/cd/manage/${id}`; 
     }
 });
+document.getElementById('btn-open-config-rate').onclick = () => {
+    document.getElementById('modal-config-rate').style.display = 'block';
+};
 
+document.getElementById('btn-apply-rate').onclick = async () => {
+    const data = {
+        rate: document.getElementById('input-new-rate').value,
+        effective_date: document.getElementById('input-effective-date').value
+    };
+
+    if(!data.rate || !data.effective_date) return alert("Vui lòng nhập đủ thông tin");
+
+    const response = await fetch('/api/config/interest-rate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+
+    if(response.ok) {
+        alert("Cấu hình lãi suất thành công! Hệ thống sẽ áp dụng từ ngày bạn đã chọn.");
+        location.reload();
+    } else {
+        alert("Có lỗi xảy ra.");
+    }
+};
 document.addEventListener("click", async function (e) {
     // Tìm button delete gần nhất (hỗ trợ cả khi click trúng icon bên trong)
     const btn = e.target.closest(".btn-delete");
