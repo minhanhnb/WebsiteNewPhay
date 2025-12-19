@@ -1,15 +1,17 @@
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, time
+
 from dateutil.relativedelta import relativedelta
 from config import USER_INTEREST_RATE
 from firebase_admin import firestore
 import math 
 
 class SystemService:
-    def __init__(self, finsight_repo, transaction_repo, cd_repo, bank_repo):
+    def __init__(self, finsight_repo, transaction_repo, cd_repo, bank_repo, config_service = None):
         self.finsight_repo = finsight_repo
         self.transaction_repo = transaction_repo
         self.cd_repo = cd_repo
         self.bank_repo = bank_repo
+        self.config_service = config_service
         
 
     def get_full_overview(self, user_id, view_date_str=None):
@@ -551,77 +553,81 @@ class SystemService:
         }
     # ... Helper Functions cũ (tính giá, log trans...) giữ nguyên ...
   
-    def _calculate_cd_price_dynamic(self, cd, view_date):
-        try:
-            # 1. Parse dữ liệu đầu vào
-            c1 = cd.get("thongTinChung", {})
-            c2 = cd.get("thongTinLaiSuat", {})
+    
+    # def _calculate_cd_price_dynamic(self, cd, view_date):
+    #     try:
+    #         # 1. Parse dữ liệu đầu vào
+    #         c1 = cd.get("thongTinChung", {})
+    #         c2 = cd.get("thongTinLaiSuat", {})
             
-            # Xử lý mệnh giá
-            menh_gia_str = str(c1.get("menhGia", 0)).replace('.', '').replace(',', '.')
-            menh_gia = float(menh_gia_str)
+    #         # Xử lý mệnh giá
+    #         menh_gia_str = str(c1.get("menhGia", 0)).replace('.', '').replace(',', '.')
+    #         menh_gia = float(menh_gia_str)
 
-            def parse_d(d_str):
-                try: return datetime.strptime(d_str, "%Y-%m-%d").date()
-                except: return None
+    #         def parse_d(d_str):
+    #             try: return datetime.strptime(d_str, "%Y-%m-%d").date()
+    #             except: return None
 
-            ngay_ph = parse_d(c1.get("ngayPhatHanh"))
-            ngay_dh = parse_d(c1.get("ngayDaoHan"))
+    #         ngay_ph = parse_d(c1.get("ngayPhatHanh"))
+    #         ngay_dh = parse_d(c1.get("ngayDaoHan"))
             
-            # Xử lý lãi suất
-            lai_suat_str = str(c2.get("laiSuat", 0)).replace(',', '.')
-            lai_suat_cd = float(lai_suat_str) / 100.0
+    #         # Xử lý lãi suất
+    #         lai_suat_str = str(c2.get("laiSuat", 0)).replace(',', '.')
+    #         lai_suat_cd = float(lai_suat_str) / 100.0
             
-            r_user = USER_INTEREST_RATE / 100.0
-            tan_suat = c2.get("tanSuatTraLai", "Cuối kỳ")
+    #         r_user = USER_INTEREST_RATE / 100.0
+    #         tan_suat = c2.get("tanSuatTraLai", "Cuối kỳ")
 
-            # Validation
-            if not ngay_ph or not ngay_dh: return 0.0
-            if view_date < ngay_ph: return 0.0 
+    #         # Validation
+    #         if not ngay_ph or not ngay_dh: return 0.0
+    #         if view_date < ngay_ph: return 0.0 
 
-            # -----------------------------------------------------------
-            # [LOGIC ĐỒNG BỘ FILE JS: CD_DETAIL.JS]
-            # -----------------------------------------------------------
+    #         # -----------------------------------------------------------
+    #         # [LOGIC ĐỒNG BỘ FILE JS: CD_DETAIL.JS]
+    #         # -----------------------------------------------------------
 
-            # 1. Tính Price Base Day 0 (Tại ngày phát hành)
-            # Lấy ngày trả lãi đầu tiên
-            first_next_coupon = self._get_next_coupon_date(ngay_ph, ngay_dh, tan_suat, ngay_ph)
+    #         # 1. Tính Price Base Day 0 (Tại ngày phát hành)
+    #         # Lấy ngày trả lãi đầu tiên
+    #         first_next_coupon = self._get_next_coupon_date(ngay_ph, ngay_dh, tan_suat, ngay_ph)
             
-            # Tính giá gốc theo công thức Yield (không dùng NPV loop)
-            price_base_day_0 = self._calculate_yield_formula(
-                menh_gia, lai_suat_cd, r_user, 
-                first_next_coupon, ngay_ph, # curr_date = issue_date
-                ngay_ph, ngay_dh, tan_suat
-            )
+    #         # Tính giá gốc theo công thức Yield (không dùng NPV loop)
+    #         price_base_day_0 = self._calculate_yield_formula(
+    #             menh_gia, lai_suat_cd, r_user, 
+    #             first_next_coupon, ngay_ph, # curr_date = issue_date
+    #             ngay_ph, ngay_dh, tan_suat
+    #         )
 
-            # 2. Xác định Anchor Date (Ngày tham chiếu)
-            # Logic: Dùng ngày hôm qua để xác định kỳ. 
-            # - Ngày trả lãi (1/1): Anchor = 31/12 (Kỳ cũ) -> Giá Cao.
-            # - Ngày hôm sau (2/1): Anchor = 1/1 (Kỳ mới) -> Giá Reset.
-            anchor_date = view_date
-            if view_date != ngay_ph:
-                anchor_date = view_date - timedelta(days=1)
 
-            # 3. Tìm ngày bắt đầu tính lãi của kỳ này (Last Coupon)
-            last_coupon = self._get_last_coupon_date(ngay_ph, ngay_dh, tan_suat, anchor_date)
+    #         # 2. Xác định Anchor Date (Ngày tham chiếu)
+    #         # Logic: Dùng ngày hôm qua để xác định kỳ. 
+    #         # - Ngày trả lãi (1/1): Anchor = 31/12 (Kỳ cũ) -> Giá Cao.
+    #         # - Ngày hôm sau (2/1): Anchor = 1/1 (Kỳ mới) -> Giá Reset.
+    #         # 2. Lấy mốc bắt đầu tính lãi của kỳ này
+    #         anchor_date = view_date if view_date == ngay_ph else view_date - timedelta(days=1)
+    #         last_coupon = self._get_last_coupon_date(ngay_ph, ngay_dh, tan_suat, anchor_date)
             
-            # 4. Tính số ngày nắm giữ trong kỳ (Days Passed)
-            days_passed = (view_date - last_coupon).days
+    #         # 3. GỌI SERVICE để lấy các phân đoạn lãi suất (CHỈ GỌI SERVICE, KHÔNG GỌI DB)
+    #         segments = self.config_service.get_rate_segments(last_coupon, view_date)
+            
+    #         current_price = price_base_day_0 # Giá gốc đầu kỳ
+            
+    #        # 4. Logic Chaining: Nhân dồn lãi suất qua từng phân đoạn
+    #         for seg in segments:
+    #             r = seg['rate']
+    #             days = seg['days']
+                
+    #             # Rule đặc biệt: Nếu là ngày đầu kỳ (0 ngày) và không phải ngày phát hành
+    #             if days == 0 and not seg['is_start_of_period']:
+    #                 days = 1
+                    
+    #             # Công thức lãi kép dồn tích cho phân đoạn này
+    #             current_price = current_price * math.pow(1 + r/365.0, days)
 
-            # 5. Rule đặc biệt JS: Nếu là ngày đầu kỳ (0 ngày) nhưng KHÔNG phải ngày phát hành
-            # thì ép lên 1 để giá bắt đầu chạy ngay (tránh nhân với 0)
-            if days_passed == 0 and view_date != ngay_ph:
-                days_passed = 1
+    #         return round(current_price, 2)
 
-            # 6. Tính Custom Price (Lãi kép trên nền Price Base 0)
-            # Công thức: Base * (1 + r/365) ^ days
-            final_price = price_base_day_0 * math.pow(1 + r_user/365.0, days_passed)
-
-            return round(final_price, 2)
-
-        except Exception as e:
-            print(f"Error calc price: {e}")
-            return 0.0
+    #     except Exception as e:
+    #         print(f"Error calc price: {e}")
+    #         return 0.0
 
     def _calculate_yield_formula(self, M, r_CD, r_User, next_date, curr_date, issue_date, maturity_date, freq_str):
         """

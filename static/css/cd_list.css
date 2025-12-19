@@ -125,7 +125,7 @@
     transform: translateY(-1px);
 }
 
-.btn-view {
+.btn-view, .btn-outline {
     margin-left: auto; 
     background-color: #4016ff; /* Màu đỏ */
     color: white;
@@ -135,7 +135,7 @@
     border-radius: 6px;
     transition: all 0.2s;
 }
-.btn-view:hover {
+.btn-view:hover, .btn-outline:hover {
     background-color: #300ec4;
     box-shadow: 0 4px 6px rgba(38, 87, 220, 0.2);
     transform: translateY(-1px);

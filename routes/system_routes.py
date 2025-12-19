@@ -5,17 +5,27 @@ from repository.bank_repo import BankRepository
 from repository.finsight_repo import FinsightRepository
 from repository.transaction_repo import TransactionRepository
 from repository.cd_repo import CDRepository # <--- Import Mới
+
+from repository.config_repo import ConfigRepository
 from services.system_service import SystemService
 from controller.system_controller import SystemController
 
+
+from services.config_service import ConfigService
+
 system_bp = Blueprint("system_bp", __name__)
 
+config_repo = ConfigRepository()
 transaction_repo = TransactionRepository()
 user_repo = UserRepository()
 bank_repo = BankRepository()
 finsight_repo = FinsightRepository()
 cd_repo = CDRepository() # <--- Init Mới
-service = SystemService(finsight_repo, transaction_repo, cd_repo, bank_repo)
+
+config_service = ConfigService(config_repo)
+
+
+service = SystemService(finsight_repo, transaction_repo, cd_repo, bank_repo, config_service)
 controller = SystemController(service)
 
 

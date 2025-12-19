@@ -88,9 +88,10 @@
     gap: 8px;
     padding: 12px 20px;
     background: white;
+    width : 100%;
     border-bottom: 1px solid #eee;
-    position: sticky;
-    top: 60px; /* ngay dưới modal-header */
+    position: absolute;
+    top: 70px; /* ngay dưới modal-header */
     z-index: 19;
 }
 
@@ -162,7 +163,7 @@ textarea {
     gap: 12px;
 }
 
-.cancel-btn, .save-btn {
+.cancel-btn, .save-btn, .apply-rate {
     padding: 10px 20px;
     border-radius: 6px;
     cursor: pointer;
@@ -174,7 +175,14 @@ textarea {
     background: #e0e0e0;
 }
 
-.save-btn {
+.save-btn , .apply-rate{
     background: #0066ff;
     color: #fff;
+}
+
+/* Layout 2 columns - Đồng bộ với style grid-3 hiện tại của bạn */
+.grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
 }

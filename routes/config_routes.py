@@ -13,3 +13,7 @@ def config_interest_rate():
         return jsonify({"message": "Cập nhật thành công", "id": config_id}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    
+@config_bp.route('/api/config/interest-history', methods=['GET'])
+def history_route():
+    return config_service.get_formatted_history()
