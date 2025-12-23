@@ -28,36 +28,6 @@ def get_by_id(maDoiChieu):
 def render_detail_page(maDoiChieu):
     return render_template("cd_detail.html", maDoiChieu=maDoiChieu)
 
-@cd_bp.route("/cd/sync-daily-price", methods=["POST"])
-def sync_daily_price_route():
-    return controller.sync_daily_price()
-# @cd_manage_bp.route("/cd-manage/add-cd", methods=["POST"])
-# def add_cd():
-#     data = request.form  # Lấy dữ liệu từ form
-#     # Nếu gửi JSON thì dùng: data = request.json
-#     if not data:
-#         return "No data provided", 400
-
-#     result = add_CD_service(
-#         data.get("maCD"),
-#         data.get("ngayPhatHanh"),
-#         data.get("uuTien"),
-#         int(data.get("soLuong", 0)),
-#         int(data.get("CDKhaDung", 0)),
-#         float(data.get("laiSuat", 0)),
-#         data.get("ngayDaoHan"),
-#         float(data.get("giaSoCap", 0)),
-#     )
-
-#     return result
-
-# @cd_manage_bp.route("/cd-manage/get-cds", methods=["GET"])
-# def get_cds():
-#     result = get_all_CD()
-#     return result 
-
-
-# @cd_manage_bp.route("/cd-manage/sync-today", methods=["POST"])
-# def sync_today():
-#     result = sync_today_service()
-#     return result
+@cd_bp.route("/cd/delete/<maDoiChieu>", methods=["DELETE"])
+def delete_asset(maDoiChieu):
+    return controller.handle_delete_asset(maDoiChieu)

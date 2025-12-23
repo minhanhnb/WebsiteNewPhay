@@ -1,15 +1,22 @@
 document.addEventListener("DOMContentLoaded", () => {
     // --- 1. CONFIG & ELEMENTS ---
+    const defaultDateISO = "2025-01-01"; 
     const elTotal = document.getElementById("totalBalance");
     const elTableBody = document.getElementById("historyBody");
     const elViewDate = document.getElementById("viewDate");
     const form = document.getElementById("transForm");
+
+    const btnReset = document.getElementById("btnResetData");
     
     // Default Date
-    const todayStr = new Date().toISOString().split('T')[0];
     const transDateInput = document.getElementById("transDate");
-    if (transDateInput) transDateInput.value = todayStr;
-    if (elViewDate) elViewDate.value = todayStr;
+    
+    if (elViewDate) {
+            elViewDate.value = defaultDateISO;
+            }
+    if (transDateInput) {
+        transDateInput.value = defaultDateISO;
+            }
     
     const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
@@ -67,12 +74,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 <td>${date}</td>
                 <td><span class="${cls}">${label}</span></td>
                 <td class="${cls} fw-bold">${sign} ${formatMoney(item.amount)}</td>
-                <td class="text-muted small">${item.note || ""}</td>
                 <td class="text-center">
                     <button class="btn-delete" data-id="${transId}" 
                             style="border:none; background:transparent; color:#e74c3c; cursor:pointer; font-size: 1.1rem;"
                             title="Xóa giao dịch này">
-                        <i class="fas fa-trash-alt"></i> 🗑
+                        <i class="fas fa-trash-alt"></i> 
                     </button>
                 </td>
             `;
@@ -109,6 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 await loadData();
             } else {
                 alert("❌ " + (result.message || "Lỗi xóa giao dịch"));
+                await loadData();
             }
         } catch (err) {
             console.error(err);
@@ -116,82 +123,107 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // --- 3. SUBMIT FORM (NẠP/RÚT) ---
-    // --- 3. SUBMIT FORM (NẠP/RÚT) ---
-    if (form) {
-        form.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            
-            // ... (Phần lấy dữ liệu input giữ nguyên) ...
-            const actionInput = document.querySelector('input[name="action"]:checked');
-            if (!actionInput) { alert("Vui lòng chọn hành động!"); return; }
-            
-            const action = actionInput.value;
-            const date_trans = document.getElementById("transDate").value;
-            const rawAmount = document.getElementById("transAmount").value;
-            const amount = parseFloat(rawAmount.replace(/\./g, "").replace(/,/g, "."));
 
-            if (!amount || amount <= 0) {
-                alert("Số tiền không hợp lệ!");
-                return;
-            }
+   // --- 3. SUBMIT FORM (NẠP/RÚT) ---
+if (form) {
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        // 1. Thu thập và validate dữ liệu (Giữ nguyên logic của bạn)
+        const actionInput = document.querySelector('input[name="action"]:checked');
+        if (!actionInput) { alert("Vui lòng chọn hành động!"); return; }
+        
+        const action = actionInput.value;
+        const date_trans = document.getElementById("transDate").value;
+        const rawAmount = document.getElementById("transAmount").value;
+        const amount = parseFloat(rawAmount.replace(/\./g, "").replace(/,/g, "."));
 
-            if (action === "RUT") {
-                if(!confirm(`Xác nhận RÚT ${formatMoney(amount)}?\nHệ thống sẽ tự động bán CD nếu tiền mặt không đủ.`)) return;
-            }
+        if (!amount || amount <= 0) {
+            alert("Số tiền không hợp lệ!");
+            return;
+        }
 
-            const payload = { 
-                action_type: action, 
-                amount: amount, 
-                date_trans: date_trans, 
-                note: document.getElementById("transNote").value,
-                user_id: "user_default"
-            };
+        if (action === "RUT") {
+            if(!confirm(`Xác nhận RÚT ${formatMoney(amount)}?\nHệ thống sẽ tự động bán CD nếu tiền mặt không đủ.`)) return;
+        }
 
-            const btnSubmit = form.querySelector(".btn-submit");
-            const orgText = btnSubmit.innerText;
+        const payload = { 
+            action_type: action, 
+            amount: amount, 
+            date_trans: date_trans, 
+            note: "",
+            user_id: "user_default"
+        };
 
-            try {
-                btnSubmit.innerText = "Đang xử lý...";
-                btnSubmit.disabled = true;
+        const btnSubmit = form.querySelector(".btn-submit");
+        const orgText = btnSubmit.innerText;
+        
+        try {
+            btnSubmit.innerText = "Đang xử lý 2 hệ thống...";
+            btnSubmit.disabled = true;
 
-                const res = await fetch("/ttt/api/transact", {
+            // 2. Định nghĩa danh sách API
+            const apiEndpoints = [
+                 { name: "Hệ thống 1", url: "/ttt/api/transact" },
+                { name: "Hệ thống 2", url: "/ttt2/api/transact" }
+            ];
+
+            // 3. Thực thi gọi đồng thời
+            const requests = apiEndpoints.map(api => 
+                fetch(api.url, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)
-                });
-                
-                const result = await res.json();
-                console.log("Submit Result:", result); // Debug log
+                })
+                .then(async res => {
+                    const data = await res.json();
+                    return { name: api.name, ok: res.ok, data: data };
+                })
+                .catch(err => ({ name: api.name, ok: false, data: { message: err.message } }))
+            );
 
-                // [FIX LỖI TẠI ĐÂY]
-                // Backend trả về { "status": "success" }, không phải { "success": true }
-                // Nên ta phải check result.status === 'success'
-                if (res.ok && result.status === 'success') {
-                    alert("✅ " + result.message);
-                    
-                    // Reset form
-                    form.reset();
-                    document.getElementById("transDate").value = new Date().toISOString().split('T')[0];
-                    document.getElementById("actNap").checked = true;
-                    
-                    // Gọi loadData để cập nhật số dư
-                    console.log("Calling loadData()...");
-                    await loadData(); 
-                    
+            const results = await Promise.allSettled(requests);
+            
+            // 4. Phân tích kết quả
+            let successCount = 0;
+            let summaryMessage = "";
+            let lastErrorMessage = "Có lỗi xảy ra";
+
+            results.forEach(res => {
+                const val = res.value;
+                if (res.status === "fulfilled" && val.ok && val.data.status === 'success') {
+                    successCount++;
+                    summaryMessage += `✅ ${val.name}: Thành công\n`;
                 } else {
-                    alert("❌ " + (result.message || "Có lỗi xảy ra"));
+                    const errorMsg = val?.data?.message || "Không phản hồi";
+                    summaryMessage += `❌ ${val?.name || "Hệ thống"}: ${errorMsg}\n`;
+                    lastErrorMessage = errorMsg;
                 }
-            } catch (err) {
-                console.error(err);
-                alert("Lỗi kết nối server");
-            } finally {
-                btnSubmit.innerText = orgText;
-                btnSubmit.disabled = false;
-            }
-        });
-    }
+            });
 
+            // 5. Phản hồi UI
+            if (successCount > 0) {
+                alert(summaryMessage);
+                
+                form.reset();
+                document.getElementById("transDate").value = new Date().toISOString().split('T')[0];
+                document.getElementById("actNap").checked = true;
+                
+                console.log("Calling loadData()...");
+                await loadData(); 
+            } else {
+                alert("Thất bại hoàn toàn:\n" + summaryMessage);
+            }
+
+        } catch (err) {
+            console.error(err);
+            alert("Lỗi thực thi script: " + err.message);
+        } finally {
+            btnSubmit.innerText = orgText;
+            btnSubmit.disabled = false;
+        }
+    });
+}
     // Auto format input money
     const inputAmount = document.getElementById("transAmount");
     if (inputAmount) {
@@ -200,6 +232,39 @@ document.addEventListener("DOMContentLoaded", () => {
             if (val) e.target.value = new Intl.NumberFormat('vi-VN').format(parseInt(val));
         });
     }
+ 
+      // --- BUTTON ACTIONS ---
+    // 1. Tối ưu hàm callApi: Trả về dữ liệu, không xử lý UI/Logic riêng lẻ bên trong
+async function callApi(url, body) {
+    const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+    return await res.json();
+}
+
+// 2. Gắn sự kiện Reset với xử lý tập trung
+btnReset?.addEventListener("click", async () => {
+    if (!confirm("⚠️ NGUY HIỂM: Xác nhận xóa toàn bộ dữ liệu?")) return;
+    if (!confirm("Xác nhận lần cuối: Hành động này không thể hoàn tác.")) return;
+
+
+        btnReset.disabled = true;
+        const originalText = btnReset.innerText;
+        btnReset.innerText = "⏳ Đang Reset...";
+
+        // Thực hiện gọi song song
+        const results = await Promise.allSettled([
+            callApi("/system2/api/reset", {}),
+            callApi("/system/api/reset", {})
+        ]);
+        window.location.reload();
+});
+ 
+    
+
 
     // --- 4. INIT ---
     loadData();

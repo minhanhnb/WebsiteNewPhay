@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/T2/system_dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="system-container">
+    
+   <div class="header-row">
+        <h3 class="title">Hệ thống cách 2</h3>
+
+        <button class="btn-reset" id="btnResetData">
+            Xóa Data
+        </button>
+        </div>
+
+
+           <hr class="my-2 opacity-0 ">
+
+
+<div class="control-panel-wrapper">
+    
+    <div class="panel-left">
+       
+        <div class="mb-3 border-bottom pb-3">
+        
+        </div>
+        
+    <div class="custom-control-container-vertical">
+    
+    <div class="custom-input-group">
+        <span class="custom-label">Ngày xem hệ thống</span>
+        <input type="date" id="viewDate" class="custom-input">
+    </div>
+
+    <div class="custom-input-group">
+        <span class="custom-label">Ngày sync chênh lệch</span>
+        <input type="date" id="settleDateInput" class="custom-input">
+    </div>
+
+</div>
+        <div id="allocationNotice" class="alert alert-info small mb-2" style="display: none;">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <span id="allocationNoticeText"></span>
+                    </div>
+
+                    
+    
+               
+                <button class="btn-minimal btn-outline-primary-minimal justify-content-center py-2 shadow-sm" id="btnSyncDiff">
+                    <i class="fas fa-magic me-2"></i> Sync chênh lệch
+                </button>
+                <button class="btn-minimal btn-outline-primary-minimal justify-content-center py-2 shadow-sm" id="btnSyncBank">
+                    <i class="fas fa-sync me-2"></i> Gửi lệnh Lưu ký (NHLK)
+                </button>
+
+
+    </div>
+
+    <div class="panel-right">
+        <div class="queue-header">
+            <div class="fw-bold text-muted small text-uppercase">
+                Lệnh chờ gửi NHLK
+            </div>
+        </div>
+        <div id="allocationNotice" class="alert alert-primary d-flex align-items-start small mb-3" role="alert" style="display: none; border-left: 4px solid #0d6efd;">
+    <i class="fas fa-info-circle fa-lg me-2 mt-1"></i>
+    <div id="allocationNoticeText">
+        </div>
+</div>
+
+            
+        <div class="queue-list" id="queueContainer">
+            <div class="text-center text-muted mt-4 small">
+                <i class="fas fa-check-circle me-1"></i> Không có lệnh chờ
+            </div>
+        </div>
+    </div>
+</div>
+    </div>
+   
+    <div id="content-area">
+        
+        <div id="section-user" class="section-wrapper">
+                <h6 class="text-uppercase text-primary fw-bold">1. Túi User/ Ngăn Tủ</h6>
+                <div class="dashboard-grid" id="user-data-container"></div>
+        </div>
+
+
+        <div id="section-system" class="section-wrapper">
+            <h6 class="text-uppercase text-primary fw-bold">2. Core TVAM</h6>
+            <div class="dashboard-grid" id="finsight-data-container"></div>
+        </div>
+
+        <div id="section-bank" class="section-wrapper">
+            <h6 class="text-uppercase text-primary fw-bold">3. Ngân Hàng Lưu Ký</h6>
+            <div class="dashboard-grid" id="bank-data-container"></div>
+        </div>
+
+    </div>
+</div>
+
+<div id="loading-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:9999; justify-content:center; align-items:center;">
+    <div class="spinner-border text-dark spinner-border-sm me-2"></div>
+    <span class="fw-bold text-dark">Đang tải...</span>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/T2/system_dashboard.js') }}"></script>
+
+{% endblock %}

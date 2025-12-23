@@ -24,14 +24,28 @@ class CDController:
     def get_cd_detail(self, maDoiChieu):
         return self.service.get_cd_by_id(maDoiChieu)
 
-    def sync_daily_price(self):
-        try:
-            # Có thể nhận thêm tham số 'system_rate' từ request nếu muốn dùng 1 lãi suất chung
-            # data = request.json 
-            # system_rate = data.get('rate', None)
+    # def sync_daily_price(self):
+    #     try:
+    #         # Có thể nhận thêm tham số 'system_rate' từ request nếu muốn dùng 1 lãi suất chung
+    #         # data = request.json 
+    #         # system_rate = data.get('rate', None)
             
-            result = self.service.calculate_daily_price_batch()
-            return jsonify(result), 200
+    #         result = self.service.calculate_daily_price_batch()
+    #         return jsonify(result), 200
+    #     except Exception as e:
+    #         print(f"Controller Error: {e}")
+    #         return jsonify({"message": str(e)}), 500
+
+    def handle_delete_asset(self, asset_id):
+        try:
+            # Gọi Service xử lý nghiệp vụ
+            success, message = self.service.delete_asset_logic(asset_id)
+            
+            if success:
+                return jsonify({"success": True, "message": message}), 200
+            return jsonify({"success": False, "message": message}), 400
         except Exception as e:
-            print(f"Controller Error: {e}")
-            return jsonify({"message": str(e)}), 500
+            return jsonify({"success": False, "message": str(e)}), 500
+            
+
+    

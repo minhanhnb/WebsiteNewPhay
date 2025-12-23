@@ -107,5 +107,64 @@ class BankRepository(BaseRepository):
             doc.reference.update({field: firestore.Increment(value)})
             return
         
+    def sync_assets_net_changes(self, asset_changes_map):
+        """
+        [FIXED & FINAL] Cập nhật hàng loạt tài sản dựa trên map thay đổi số lượng.
+        Input: {'CD_CODE_A': 100, 'CD_CODE_B': -20} -> Kết quả: +80
+        """
+        # 1. TÌM DOCUMENT NGÂN HÀNG (SỬA LỖI STREAM)
+        docs_stream = self.collection.limit(1).stream()
+        
+        target_doc_snapshot = None
+        
+        # Duyệt qua stream để lấy document đầu tiên
+        for doc in docs_stream:
+            target_doc_snapshot = doc
+            break 
+            
+        if not target_doc_snapshot:
+            print("ERROR: Không tìm thấy System Bank Document nào.")
+            return
 
+        # Lấy dữ liệu hiện tại để tính toán
+        data = target_doc_snapshot.to_dict()
+        current_assets = data.get('taiSanUser', [])
+        
+        # [QUAN TRỌNG] Lấy reference để update sau này
+        doc_ref = target_doc_snapshot.reference 
+
+        # 2. Chuyển List hiện tại sang Dict: {'MA_CD': SoLuong}
+        portfolio_map = {}
+        for item in current_assets:
+            # Xử lý linh hoạt item là dict hay object
+            if isinstance(item, dict):
+                code = item.get('maCD')
+                qty = int(item.get('soLuong', 0))
+            else:
+                code = getattr(item, 'maCD', '')
+                qty = int(getattr(item, 'soLuong', 0))
+            
+            if code:
+                portfolio_map[code] = qty
+
+        # 3. Áp dụng thay đổi (Cộng/Trừ Delta)
+        for ma_cd, delta in asset_changes_map.items():
+            current_qty = portfolio_map.get(ma_cd, 0)
+            new_qty = current_qty + delta
+            portfolio_map[ma_cd] = new_qty
+
+        # 4. Tái tạo List để lưu (Chỉ giữ lại tài sản có số lượng > 0)
+        final_assets_list = []
+        for ma_cd, qty in portfolio_map.items():
+            if qty > 0:
+                final_assets_list.append({
+                    "maCD": ma_cd,
+                    "soLuong": qty
+                })
+            # Nếu qty <= 0 (bán hết), tự động không thêm vào list -> coi như Xóa.
+
+        # 5. Cập nhật vào Database
+        doc_ref.update({
+            "taiSanUser": final_assets_list
+        })
     

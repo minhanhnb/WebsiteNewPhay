@@ -32,11 +32,14 @@ function renderTable() {
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
-            <td>${maDoiChieu}</td>
+            <td id="data-id">${maDoiChieu}</td>
             <td>${CDKhaDung}</td>
             <td>
                 <button class="btn-view" data-id="${maDoiChieu}">
-                    Xem
+                    Xem CD
+                </button>
+                <button class="btn-delete" data-id="${maDoiChieu}">
+                    Xóa CD
                 </button>
             </td>
         `;
@@ -85,8 +88,42 @@ document.addEventListener("click", function (e) {
         window.location.href = `/cd/manage/${id}`; 
     }
 });
-// Thêm vào static/js/cd_list.js
 
+document.addEventListener("click", async function (e) {
+    // Tìm button delete gần nhất (hỗ trợ cả khi click trúng icon bên trong)
+    const btn = e.target.closest(".btn-delete");
+    if (!btn) return;
+
+    const assetId = btn.getAttribute("data-id");
+    const assetName = btn.closest("tr")?.querySelector("td:first-child")?.innerText || "tài sản này";
+
+    // 1. Cảnh báo bảo mật: Xóa tài sản là hành động nhạy cảm
+    if (!confirm(`⚠️ XÁC NHẬN XÓA: Bạn có chắc chắn muốn xóa mã CD: ${assetName} khỏi hệ thống?`)) return;
+
+    try {
+        btn.disabled = true;
+        const response = await fetch(`/cd/delete/${assetId}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" }
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            alert("✅ Đã xóa tài sản thành công.");
+            // Gọi lại hàm
+            if (typeof loadCDs === "function") loadCDs();
+        } else {
+            alert("❌ Lỗi: " + result.message);
+        }
+    } catch (err) {
+        console.error("Delete Asset Error:", err);
+        alert("❌ Lỗi kết nối server.");
+    } finally {
+        btn.disabled = false;
+    }
+     loadCDs();
+});
 document.getElementById("btn-sync-price").addEventListener("click", async () => {
     if (!confirm("Bạn có chắc chắn muốn tính toán lại giá bán cho TOÀN BỘ CD trong kho?")) return;
 

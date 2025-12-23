@@ -158,6 +158,7 @@ body {
 .section-wrapper.hidden { display: none; }
 /* Thêm vào cuối file */
 .btn-reset {
+    margin-left: auto; 
     background-color: #ef4444; /* Màu đỏ */
     color: white;
     border: 1px solid #dc2626;
@@ -170,6 +171,14 @@ body {
     background-color: #dc2626;
     box-shadow: 0 4px 6px rgba(220, 38, 38, 0.2);
     transform: translateY(-1px);
+}
+.header-row {
+  display: flex;
+  align-items: center;      /* canh giữa theo chiều dọc */
+}
+
+.title {
+  margin: 0;
 }
 
 /* 2. Nút Hành động chính (Nền Trắng - Viền Xanh Dương) */
@@ -209,6 +218,7 @@ body {
     flex-direction: column;
     justify-content: center;
     gap: 15px;
+ 
 }
 
 /* Cột Phải: Queue Display */
@@ -220,7 +230,8 @@ body {
     padding: 15px 20px;
     display: flex;
     flex-direction: column;
-    height: 180px; /* Chiều cao cố định để scroll */
+    height : 300px;
+   
 }
 
 /* Queue List Style */
@@ -322,3 +333,71 @@ body {
         gap: 10px;
         margin-left: auto; /* Đẩy về bên phải */
     }
+
+    /* Font số tiền to rõ */
+.display-6 {
+    font-size: 2rem;
+    line-height: 1.2;
+}
+
+/* Màu xanh hiện đại (Emerald) */
+.text-success {
+    color: #059669 !important;
+}
+
+/* Màu đỏ hiện đại (Rose) */
+.text-danger {
+    color: #e11d48 !important;
+}
+
+/* Hiệu ứng load nhẹ */
+#pnl-value {
+    transition: color 0.3s ease;
+}
+/* Container chính: Xếp dọc (Column) */
+.custom-control-container-vertical {
+    display: flex;
+    flex-direction: column; /* QUAN TRỌNG: Xếp theo chiều dọc */
+    gap: 12px; /* Khoảng cách giữa hàng trên và hàng dưới */
+    width: 100%;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+}
+
+/* Từng nhóm Input */
+.custom-input-group {
+    display: flex;
+    width: 100%; /* Chiếm hết chiều ngang */
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    overflow: hidden;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* Phần Nhãn (Label) */
+.custom-label {
+    background-color: #eee;
+    padding: 10px 15px;
+    font-weight: bold;
+    color: #333;
+    border-right: 1px solid #ccc;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    
+    /* Giữ độ rộng cố định để phần input bên phải thẳng hàng nhau */
+    min-width: 160px; 
+}
+
+/* Phần Input */
+.custom-input {
+    border: none;
+    padding: 10px;
+    flex-grow: 1;
+    outline: none;
+    background-color: #f8f9fa;
+    font-weight: bold;
+    font-family: inherit;
+    color: #000;
+}
