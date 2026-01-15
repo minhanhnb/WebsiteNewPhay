@@ -440,81 +440,10 @@ class SystemService:
             })
             
         return results
-    def reset_database(self):
-            """
-            DANGER: Xóa TOÀN BỘ dữ liệu (Bao gồm cả Sub-collections lịch sử).
-            Dùng cho mục đích Reset Test Case.
-            """
-            db = firestore.client()
-            batch = db.batch()
-            count = 0
-            deleted_count = 0
-
-            # Hàm helper nội bộ để commit khi batch đầy (Limit 500 ops)
-            def commit_if_needed():
-                nonlocal count, batch
-                if count >= 400:
-                    batch.commit()
-                    batch = db.batch()
-                    count = 0
-
-            try:
-                # --- 1. XỬ LÝ FINSIGHT_USERS (Phức tạp nhất vì có Sub-collections) ---
-                users = db.collection('finsight_users').stream()
-                
-                for user in users:
-                    # A. Xóa Sub-collection: profit_history
-                    profits = user.reference.collection('profit_history').stream()
-                    for p in profits:
-                        batch.delete(p.reference)
-                        count += 1
-                        deleted_count += 1
-                        commit_if_needed()
-
-                    # B. Xóa Sub-collection: daily_snapshots
-                    snaps = user.reference.collection('daily_snapshots').stream()
-                    for s in snaps:
-                        batch.delete(s.reference)
-                        count += 1
-                        deleted_count += 1
-                        commit_if_needed()
-
-                    # C. Xóa User Document chính
-                    batch.delete(user.reference)
-                    count += 1
-                    deleted_count += 1
-                    commit_if_needed()
-
-                # --- 2. XỬ LÝ CÁC COLLECTION CẤP CAO KHÁC ---
-                target_collections = [
-                    'finsight_system',      # Quỹ hệ thống
-                    'bank',                 # NHLK
-                    'transactions',         # Lịch sử giao dịch
-                    'settlement_queue'      # Log chờ Sync
-                ]
-
-                for coll_name in target_collections:
-                    coll_ref = db.collection(coll_name)
-                    docs = coll_ref.stream()
-                    
-                    for doc in docs:
-                        batch.delete(doc.reference)
-                        count += 1
-                        deleted_count += 1
-                        commit_if_needed()
-                
-                # Commit những gì còn sót lại trong batch cuối
-                if count > 0:
-                    batch.commit()
-
-                return {
-                    "status": "success", 
-                    "message": f"Hệ thống đã được RESET sạch sẽ! Đã xóa {deleted_count} items (bao gồm cả Profit & Snapshots)."
-                }
-
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-        
+    
+      # Hàm helper nội bộ để commit khi batch đầy (Limit 500 ops)
+    
+   
     def sync_batch_to_bank(self):
         logs = self.finsight_repo.get_pending_logs()
         processed_ids = []
@@ -763,6 +692,59 @@ class SystemService:
             
         return prev
 
-    def _log_transaction(self, uid, action, amt, date, note):
+    def _log_transaction_async(self, uid, action, amt, date, note):
         from models.transaction import Transaction
         self.transaction_repo.add_transaction(Transaction(uid, action, amt, date, note))
+
+
+    def reset_database(self):
+        print("Đang xóa")
+        """
+        DANGER: Xóa toàn bộ dữ liệu trong các Collection của hệ thống.
+        Dùng cho mục đích Reset Test Case.
+        """
+        db = firestore.client()
+        
+        # Danh sách các collection cần xóa
+        target_collections = [
+            'finsight_users',       # Ví User
+            'finsight_system',      # Quỹ hệ thống
+            'bank',                 # NHLK
+            'transactions',         # Lịch sử giao dịch
+            'settlement_queue',     # Log chờ Sync
+         
+        ]
+
+        deleted_count = 0
+
+        try:
+            for coll_name in target_collections:
+                coll_ref = db.collection(coll_name)
+                # Xóa từng document trong collection (Batch delete để nhanh hơn)
+                docs = coll_ref.stream()
+                batch = db.batch()
+                count = 0
+                
+                for doc in docs:
+                    batch.delete(doc.reference)
+                    count += 1
+                    deleted_count += 1
+                    # Firestore giới hạn batch 500 ops
+                    if count >= 400:
+                        batch.commit()
+                        batch = db.batch()
+                        count = 0
+                
+                if count > 0:
+                    batch.commit() # Commit phần còn lại
+
+            # Reset lại User Default và System Account về trạng thái ban đầu (Optional)
+            # Nếu muốn sạch trơn thì không cần làm gì thêm.
+            
+            return {
+                "status": "success", 
+                "message": f"Hệ thống đã được Reset! Đã xóa {deleted_count} documents."
+            }
+
+        except Exception as e:
+            return {"status": "error", "message": str(e)}

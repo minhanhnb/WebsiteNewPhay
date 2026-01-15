@@ -30,6 +30,7 @@ class SystemService2:
             target_date = date.today()
         # 2. LẤY VÍ USER
         user_wallet = self.drawer_repo.get_user_account(user_id)
+        user_data = user_wallet.to_dict()
         
         daily_profit_total = 0.0
         
@@ -37,7 +38,12 @@ class SystemService2:
         # 4. TỔNG HỢP (Giữ nguyên)
         total_net_worth = self.calculate_user_CD(user_id, target_date.isoformat())
 
-        user_data = user_wallet.to_dict()
+        db_profit_date = user_data.get('last_profit_date')
+        if db_profit_date != target_date:
+            user_data['profit_today'] = 0.0
+        
+        # User Data giờ đã có thêm accumulated_profit từ to_dict() của Drawer
+        user_data['cash'] = round(user_data.get('cash', 0), 2)
         user_data['cash'] = round(user_data.get('cash', 0), 2)
 
         user_fund = self.finsight_repo.get_user_account(user_id)
@@ -173,7 +179,8 @@ class SystemService2:
                     self.drawer_repo.update_user_cash(user_id, amount_abs)
 
                     self._log_transaction(user_id, "TIENLAI", amount_abs, date_str, f"Tiền lãi ")
-                    self.drawer_repo.update_profit_today(user_id, amount_abs)
+                    #self.drawer_repo.update_profit_today(user_id, amount_abs)
+                    self.drawer_repo.record_profit(user_id, amount_abs, date_str)
                     print("đang trong not has")
                     result["case"] = "DAILY_PROFIT_SYNC"
                     result["actions"].append(f"Payout Interest to Drawer: {amount_abs}")
