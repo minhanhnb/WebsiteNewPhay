@@ -1,5 +1,5 @@
 from ..base_repo import BaseRepository
-from models.T2.Drawer import Drawer
+from models.T3.Drawer import Drawer3
 from firebase_admin import firestore
 
 class DrawerRepository(BaseRepository):
@@ -7,32 +7,21 @@ class DrawerRepository(BaseRepository):
         # BaseRepo init collection gốc (không quan trọng lắm vì ta dùng sub-collections)
         super().__init__('drawer_data')
         self.db = firestore.client()
-        self.drawer = self.db.collection('drawer')
-        self.log_col = self.db.collection('settlement2_queue')    # Chứa Log chờ Sync
+        self.drawer = self.db.collection('drawer3')
+        self.log_col = self.db.collection('settlement3_queue')    # Chứa Log chờ Sync
 
     # --- 1. QUẢN LÝ USER ACCOUNT ---
     def get_user_account(self, user_id):
         doc = self.drawer.document(user_id).get()
         if doc.exists:
             data = doc.to_dict()
-            return Drawer(
+            return Drawer3(
                 user_id=data.get('user_id'),
                 cash=data.get('cash', 0),
-                accumulated_profit=data.get('accumulated_profit', 0)
+                profit_today= data.get('profit_today',0)
             )
-        return Drawer(user_id=user_id, cash=0, accumulated_profit=0)
-
-    def add_accumulated_profit(self, user_id, profit_amount):
-        doc_ref = self.drawer.document(user_id)
-        try:
-            doc_ref.update({
-                "accumulated_profit": firestore.Increment(profit_amount),
-                "last_updated": firestore.SERVER_TIMESTAMP
-            })
-        except Exception:
-            # Trường hợp user chưa tồn tại (hiếm) -> Tạo mới
-            new_user = Drawer(user_id, cash=0, accumulated_profit=profit_amount)
-            doc_ref.set(new_user.to_dict())
+        # Nếu chưa có -> Trả về User mới (Cash=0)
+        return Drawer3(user_id=user_id, cash=0, profit_today=0)
     
     def update_user_cash(self, user_id, amount_delta):
         """Cập nhật Cash Remainder của User"""
@@ -44,7 +33,7 @@ class DrawerRepository(BaseRepository):
             })
         except Exception:
             # Tạo mới nếu chưa tồn tại
-            new_user = Drawer(user_id, cash=amount_delta)
+            new_user = Drawer3(user_id, cash=amount_delta)
             doc_ref.set(new_user.to_dict())
 
     def update_profit_today(self, user_id, amount_delta):
@@ -57,7 +46,7 @@ class DrawerRepository(BaseRepository):
                 })
             except Exception:
                 # Tạo mới nếu chưa tồn tại
-                new_user = Drawer(user_id, cash =0,profit_today=amount_delta)
+                new_user = Drawer3(user_id, cash =0,profit_today=amount_delta)
                 doc_ref.set(new_user.to_dict())
 
     

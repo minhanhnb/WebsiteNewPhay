@@ -3,10 +3,10 @@ from dateutil.relativedelta import relativedelta
 from config import USER_INTEREST_RATE
 from firebase_admin import firestore
 import math 
-from models.T2.transaction import Transaction2
+from models.T3.transaction import Transaction3
 
 
-class SystemService2:
+class SystemService3:
     def __init__(self, drawer_repo, finsight_repo, transaction_repo, cd_repo, bank_repo):
         self.drawer_repo = drawer_repo
         self.finsight_repo = finsight_repo
@@ -14,229 +14,69 @@ class SystemService2:
         self.cd_repo = cd_repo
         self.bank_repo = bank_repo
         
-    # def get_full_overview(self, user_id, view_date_str=None):
-    #     """
-    #     Tổng hợp dữ liệu Dashboard.
-    #     [FIXED] Logic Cash Time-Travel: Trừ ngược các khoản lãi tương lai để ra cash quá khứ đúng nhất.
-    #     """
-    #     # 1. Xác định ngày định giá (T)
-    #     if view_date_str:
-    #         try:
-    #             target_date_obj = datetime.strptime(view_date_str, "%Y-%m-%d").date()
-    #             target_date_str = view_date_str
-    #         except ValueError:
-    #             target_date_obj = date.today()
-    #             target_date_str = date.today().isoformat()
-    #     else:
-    #         target_date_obj = date.today()
-    #         target_date_str = date.today().isoformat()
-        
-    #     target_date_clean = str(target_date_str or "").strip()[:10]
 
-    #     # 2. LẤY DỮ LIỆU
-    #     user_wallet = self.drawer_repo.get_user_account(user_id)
-    #     raw_transactions = self.transaction_repo.get_transactions_by_user(user_id)
-
-    #     # 3. XỬ LÝ TRANSACTION: TÍNH LÃI HÔM NAY & TÍNH TỔNG LÃI TƯƠNG LAI
-    #     calculated_profit_today = 0.0
-    #     future_interest_sum = 0.0 # Biến chứa tổng lãi phát sinh SAU ngày xem
-        
-    #     history_data = []
-
-    #     for doc in raw_transactions:
-    #         data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
-    #         trans_id = doc.id if hasattr(doc, 'id') else data.get('id')
-            
-    #         t_date = data.get("date_trans")
-    #         t_type = data.get("action_type") or data.get("action")
-    #         t_amount = float(data.get("amount", 0))
-    #         t_status = data.get("status")
-
-    #         # Clean date transaction
-    #         t_date_clean = str(t_date or "").strip()[:10]
-
-    #         # A. Tính Profit Today (Logic cũ đã fix)
-    #         if t_date_clean == target_date_clean and t_type == "TIENLAI":
-    #             calculated_profit_today += t_amount
-
-    #         # B. [LOGIC MỚI] Tính tổng lãi "Tương lai" (Lớn hơn ngày xem)
-    #         # Logic: Nếu ngày giao dịch > ngày xem -> Đây là tiền chưa nên có ở thời điểm xem -> Cần trừ ra
-    #         if t_date_clean > target_date_clean and t_type == "TIENLAI":
-    #             future_interest_sum += t_amount
-
-    #         history_data.append({
-    #             "id": trans_id,
-    #             "date_trans": t_date,
-    #             "action_type": t_type,
-    #             "amount": t_amount,
-    #             "status": t_status
-    #         })
-
-    #     # 4. TÍNH CASH TẠI THỜI ĐIỂM XEM (ADJUSTED CASH)
-    #     current_real_cash = float(user_wallet.cash)
-        
-    #     # Cash hiển thị = Cash thực tế hiện tại - Tổng lãi phát sinh sau ngày xem
-    #     adjusted_view_cash = current_real_cash - future_interest_sum
-
-    #     # 5. TỔNG HỢP DỮ LIỆU TRẢ VỀ
-    #     total_net_worth = self.calculate_user_CD(user_id, target_date_obj.isoformat())
-
-    #     user_data = user_wallet.to_dict()
-        
-    #     # [QUAN TRỌNG] Gán Cash đã điều chỉnh vào kết quả trả về
-    #     user_data['cash'] = round(adjusted_view_cash, 2)
-    #     user_data['profit_today'] = round(calculated_profit_today, 2)
-
-    #     # ... (Các phần lấy Finsight, Bank, Queue giữ nguyên) ...
-    #     user_fund = self.finsight_repo.get_user_account(user_id)
-    #     system_fund = self.finsight_repo.get_system_account()
-    #     bank_data = self.bank_repo.get_system_bank()
-    #     pending_docs = self.finsight_repo.get_pending_logs()
-    #     processed_inventory = self.get_available_inventory_with_price(view_date_str)
-
-    #     finsight_data = system_fund.to_dict()
-    #     finsight_data['user'] = user_fund.to_dict()
-    #     finsight_data['inventory'] = processed_inventory
-        
-    #     queue_list =[]
-    #     for doc in pending_docs: 
-    #         data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
-    #         item = {
-    #             "id": data.get("id") if data.get("id") else getattr(doc, 'id', None),
-    #             "type": data.get("type") if data.get("type") else getattr(doc, 'type', None),
-    #             "amount": data.get("amount") if data.get("amount") else getattr(doc, 'amount', None),
-    #             "created_at": data.get("created_at") if data.get("created_at") else getattr(doc, 'created_at', None),
-    #             "details": data.get("details") if data.get("details") else getattr(doc, 'details', None),
-    #         } 
-    #         queue_list.append(item)
-
-    #     return {
-    #         "user": user_data, 
-    #         "history": history_data, 
-    #         "finsight": finsight_data,
-    #         "bank": bank_data.to_dict(),
-    #         "queue": queue_list,
-    #         "total_balance_estimate": total_net_worth,
-    #         "meta": {
-    #             "server_time": datetime.now().isoformat(),
-    #             "valuation_date": target_date_str,
-    #             "mode": "COMPUTED_DAILY_PNL_AND_CASH" 
-    #         }
-    #     }
     def get_full_overview(self, user_id, view_date_str=None):
         """
         Tổng hợp dữ liệu Dashboard.
-        [FIXED] Logic Time-Travel: 
-        1. Ẩn tài sản chưa mua tại thời điểm View Date.
-        2. Trừ lùi Cash để ra số dư quá khứ đúng.
+        [FIXED] Logic tính lãi ngày: Loại bỏ tài sản mới mua trong ngày khỏi tính toán lãi qua đêm.
         """
-        # 1. Xác định ngày định giá (T)
+        # 1. Xác định ngày định giá (T) và ngày hôm trước (T-1)
         if view_date_str:
             try:
-                target_date_obj = datetime.strptime(view_date_str, "%Y-%m-%d").date()
-                target_date_str = view_date_str
+                target_date = datetime.strptime(view_date_str, "%Y-%m-%d").date()
             except ValueError:
-                target_date_obj = date.today()
-                target_date_str = date.today().isoformat()
+                target_date = date.today()
         else:
-            target_date_obj = date.today()
-            target_date_str = date.today().isoformat()
-        
-        target_date_clean = str(target_date_str or "").strip()[:10]
-
-        # 2. LẤY DỮ LIỆU
+            target_date = date.today()
+        # 3. LẤY VÍ USER
         user_wallet = self.drawer_repo.get_user_account(user_id)
-        raw_transactions = self.transaction_repo.get_transactions_by_user(user_id)
-        user_fund = self.finsight_repo.get_user_account(user_id) # Lấy danh mục đầu tư User
-
-        # 3. XỬ LÝ TRANSACTION (Tính Cash & Profit)
-        calculated_profit_today = 0.0
-        future_interest_sum = 0.0 
         
-        history_data = []
-        for doc in raw_transactions:
-            # ... (Logic parse transaction giữ nguyên như cũ)
-            data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
-            trans_id = doc.id if hasattr(doc, 'id') else data.get('id')
-            t_date = data.get("date_trans")
-            t_type = data.get("action_type") or data.get("action")
-            t_amount = float(data.get("amount", 0))
-            t_status = data.get("status")
-            t_date_clean = str(t_date or "").strip()[:10]
-
-            if t_date_clean == target_date_clean and t_type == "TIENLAI":
-                calculated_profit_today += t_amount
-
-            if t_date_clean > target_date_clean and t_type == "TIENLAI":
-                future_interest_sum += t_amount
-
-            history_data.append({
-                "id": trans_id, "date_trans": t_date, "action_type": t_type, 
-                "amount": t_amount, "status": t_status
-            })
-
-        # 4. TÍNH CASH QUÁ KHỨ
-        current_real_cash = float(user_wallet.cash)
-        adjusted_view_cash = current_real_cash - future_interest_sum
-
-        # 5. [QUAN TRỌNG] LỌC TÀI SẢN USER (Ẩn các CD chưa mua tại ngày xem)
-        # Chúng ta cần filter user_fund.assets trước khi trả về Frontend
+        daily_profit_total = 0.0
         
-        valid_assets_at_date = []
-        total_asset_value = 0.0
 
-        if user_fund and hasattr(user_fund, 'assets'):
-            for asset in user_fund.assets:
-                # Lấy ngày mua của tài sản (Giả sử format lưu DB là YYYY-MM-DD)
-                asset_buy_date_str = str(asset.get('ngayMua', '')).strip()[:10]
-                
-                # Logic: Chỉ hiển thị nếu Ngày Mua <= Ngày Xem
-                # Nếu không có ngày mua (dữ liệu cũ), tạm thời cho hiện hoặc ẩn tùy bạn (ở đây tôi cho hiện để an toàn)
-                if not asset_buy_date_str or asset_buy_date_str <= target_date_clean:
-                    
-                    # Tính giá trị tại ngày xem để cộng vào Tổng tài sản
-                    ma_cd = asset.get('maCD')
-                    so_luong = int(asset.get('soLuong', 0))
-                    cd_info = self.cd_repo.get_cd_by_id(ma_cd)
-                    
-                    price = self._calculate_cd_price_dynamic(cd_info, target_date_obj)
-                    
-                    # Nếu giá > 0 mới tính (hoặc tính cả giá = 0 tùy nghiệp vụ)
-                    total_asset_value += so_luong * price
-                    
-                    # Thêm vào danh sách hiển thị
-                    valid_assets_at_date.append(asset)
-        
-        # Gán lại danh sách tài sản đã lọc vào object trả về
-        user_fund_dict = user_fund.to_dict()
-        user_fund_dict['assets'] = valid_assets_at_date
+        # 4. TỔNG HỢP (Giữ nguyên)
+        total_net_worth = self.calculate_user_CD(user_id, target_date.isoformat())
 
-        # 6. TỔNG HỢP RETURN
         user_data = user_wallet.to_dict()
-        user_data['cash'] = round(adjusted_view_cash, 2)
-        user_data['profit_today'] = round(calculated_profit_today, 2)
+        user_data['cash'] = round(user_data.get('cash', 0), 3)
 
+        user_fund = self.finsight_repo.get_user_account(user_id)
         system_fund = self.finsight_repo.get_system_account()
         bank_data = self.bank_repo.get_system_bank()
         pending_docs = self.finsight_repo.get_pending_logs()
         processed_inventory = self.get_available_inventory_with_price(view_date_str)
 
         finsight_data = system_fund.to_dict()
-        finsight_data['user'] = user_fund_dict # Dùng danh sách đã lọc
+        finsight_data['user'] = user_fund.to_dict()
         finsight_data['inventory'] = processed_inventory
-        
-        queue_list = []
-        for doc in pending_docs:
-             # ... (Logic queue giữ nguyên)
-             data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
-             item = {
-                "id": data.get("id") if data.get("id") else getattr(doc, 'id', None),
-                "type": data.get("type") if data.get("type") else getattr(doc, 'type', None),
-                "amount": data.get("amount") if data.get("amount") else getattr(doc, 'amount', None),
-                "created_at": data.get("created_at") if data.get("created_at") else getattr(doc, 'created_at', None),
-                "details": data.get("details") if data.get("details") else getattr(doc, 'details', None),
-            } 
-             queue_list.append(item)
+        print(finsight_data)
+        queue_list =[]
+        for doc in pending_docs: 
+            data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
+            item = {
+            "id": data.get("id") if data.get("id") else getattr(doc, 'id', None),
+            "type": data.get("type") if data.get("type") else getattr(doc, 'type', None),
+            "amount": data.get("amount") if data.get("amount") else getattr(doc, 'amount', None),
+            "created_at": data.get("created_at") if data.get("created_at") else getattr(doc, 'created_at', None),
+            "details": data.get("details") if data.get("details") else getattr(doc, 'details', None),
+        } 
+            queue_list.append(item)
+
+
+        raw_transactions = self.transaction_repo.get_transactions_by_user(user_id)
+    
+        # 3. Format lại history để Frontend dễ dùng (Clean Data)
+        history_data = []
+        for doc in raw_transactions:
+            # Sử dụng logic lấy ID an toàn chúng ta đã bàn
+            data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
+            history_data.append({
+                "id": doc.id if hasattr(doc, 'id') else data.get('id'),
+                "date_trans": data.get("date_trans"),
+                "action_type": data.get("action_type") or data.get("action"),
+                "amount": data.get("amount", 0),
+                "status": data.get("status")
+            })
 
         return {
             "user": user_data,
@@ -244,11 +84,11 @@ class SystemService2:
             "finsight": finsight_data,
             "bank": bank_data.to_dict(),
             "queue": queue_list,
-            "total_balance_estimate": total_asset_value, # Dùng giá trị đã tính lại từ danh sách lọc
+            "total_balance_estimate": total_net_worth,
             "meta": {
                 "server_time": datetime.now().isoformat(),
-                "valuation_date": target_date_str,
-                "mode": "TIME_TRAVEL_FILTERED" 
+                "valuation_date": target_date.isoformat(),
+                "mode": "FIXED_INTRADAY_PNL" 
             }
         }
         
@@ -275,12 +115,12 @@ class SystemService2:
         
         return total_val
 
-    # --- 2. NẠP TIỀN VÀO NGĂN TỦ---
+    # --- 3. NẠP TIỀN VÀO NGĂN TỦ---
     def process_deposit(self, user_id, amount, date_str):
         # 1. User: Tăng Cash Remainder
         self.drawer_repo.update_user_cash(user_id, amount)
 
-        # 2. Log lịch sử giao dịch
+        # 3. Log lịch sử giao dịch
         self._log_transaction(user_id, "NAP", amount, date_str, "Nạp vào Ngăn tủ")
         
         return {"status": "success", "message": "Nạp tiền thành công (Đã vào Cash Remainder)"}
@@ -328,14 +168,13 @@ class SystemService2:
                 print(has_withdrawal)
 
                 if not has_withdrawal:
-                    # CASE 2: PHÁT SINH LÃI (Networth tăng do CD tăng giá, Drawer chưa cập nhật)
+                    # CASE 3: PHÁT SINH LÃI (Networth tăng do CD tăng giá, Drawer chưa cập nhật)
                     # Chúng ta bơm lãi ngược lại cho Tủ để khớp Networth
                     self.drawer_repo.update_user_cash(user_id, amount_abs)
 
                     self._log_transaction(user_id, "TIENLAI", amount_abs, date_str, f"Tiền lãi ")
-                    #self.drawer_repo.update_profit_today(user_id, amount_abs)
-                    self.drawer_repo.add_accumulated_profit(user_id, amount_abs)
-                    print("Đang ở case sync Lãi")                   
+                    self.drawer_repo.update_profit_today(user_id, amount_abs)
+                    print("đang trong not has")
                     result["case"] = "DAILY_PROFIT_SYNC"
                     result["actions"].append(f"Payout Interest to Drawer: {amount_abs}")
                     return {**result, "status": "success"}
@@ -456,7 +295,7 @@ class SystemService2:
         except Exception as e:
             print(f"Error in _sync_auto_allocate: {e}")
             return {"status": "error", "message": str(e)}
-    # HÀM 2: DRAIN (RÚT ĐỒNG BỘ + TỰ ĐỘNG BÁN)
+    # HÀM 3: DRAIN (RÚT ĐỒNG BỘ + TỰ ĐỘNG BÁN)
 
     def _sync_drain_funds(self, user_id, amount, date_str):
         try : 
@@ -476,7 +315,7 @@ class SystemService2:
                 self.finsight_repo.add_settlement_log(user_id, "SYNC_CASH_OUT", amount, date_str)
                 return
 
-            # 2. Nếu thiếu Cash -> Phải bán CD
+            # 3. Nếu thiếu Cash -> Phải bán CD
             shortage = amount - current_cash
             
             # [Strategy: Ưu tiên bán CD nào?]
@@ -512,8 +351,8 @@ class SystemService2:
             
             # Thực hiện update DB
             # Net change của Cash = (Tiền bán được) - (Tiền cần rút)
-            # Vd: Cần rút 100. Cash có 20. Thiếu 80. Bán CD được 85.
-            # Cash mới = 20 + 85 - 100 = 5.
+            # Vd: Cần rút 100. Cash có 30. Thiếu 80. Bán CD được 85.
+            # Cash mới = 30 + 85 - 100 = 5.
             net_cash_change = cash_raised - amount
 
             for item in assets_to_sell:
@@ -541,7 +380,7 @@ class SystemService2:
         amount = float(amount)
         user_acc = self.drawer_repo.get_user_account(user_id)
         current_cash = user_acc.cash
-        print("Đang vào hệ thống 2 để rút tiền")
+        print("Đang vào hệ thống 3 để rút tiền")
         # A. Đủ Cash
         if current_cash >= amount:
             self.drawer_repo.update_user_cash(user_id, -amount)
@@ -567,7 +406,7 @@ class SystemService2:
         else:
             target_date = date.today()
 
-        # 2. [THEO YÊU CẦU] Lấy trực tiếp từ CD Repo
+        # 3. [THEO YÊU CẦU] Lấy trực tiếp từ CD Repo
         # Hàm này trả về list các dict chứa thongTinChung, thongTinLaiSuat...
         inventory_list = self.cd_repo.get_all_cd()
         
@@ -624,11 +463,11 @@ class SystemService2:
         
         # Danh sách các collection cần xóa
         target_collections = [
-            'finsight2_users',       # Ví User
-            'finsight2_system',      # Quỹ hệ thống
-            'bank2',                 # NHLK
-            'transactions2',         # Lịch sử giao dịch
-            'settlement2_queue',     # Log chờ Sync
+            'finsight3_users',       # Ví User
+            'finsight3_system',      # Quỹ hệ thống
+            'bank3',                 # NHLK
+            'transactions3',         # Lịch sử giao dịch
+            'settlement3_queue',     # Log chờ Sync
             'drawer',
         ]
 
@@ -675,8 +514,8 @@ class SystemService2:
         user_net_cash_flow = 0.0
         finsight_net_cash_flow = 0.0 
 
-        # [2] Asset Changes Map: { 'Mã_CD': Số_lượng_thay_đổi }
-        # Ví dụ: {'CD001': 100, 'CD002': -50} (Dương là thêm, Âm là bớt)
+        # [3] Asset Changes Map: { 'Mã_CD': Số_lượng_thay_đổi }
+        # Ví dụ: {'CD001': 100, 'CD003': -50} (Dương là thêm, Âm là bớt)
         asset_changes_map = {} 
 
         for doc in logs:
@@ -732,7 +571,7 @@ class SystemService2:
         if finsight_net_cash_flow != 0:
             self.bank_repo.update_system_cash(finsight_net_cash_flow)
 
-        # 2. [OPTIMIZED] Update Assets Ownership
+        # 3. [OPTIMIZED] Update Assets Ownership
         # Truyền map thay đổi xuống repo để xử lý logic cộng trừ chuẩn xác
         if asset_changes_map:
             # Bạn cần thêm hàm sync_assets_net_changes vào BankRepo (xem code bên dưới)
@@ -752,7 +591,7 @@ class SystemService2:
         try:
             # 1. Parse dữ liệu đầu vào
             c1 = cd.get("thongTinChung", {})
-            c2 = cd.get("thongTinLaiSuat", {})
+            c3 = cd.get("thongTinLaiSuat", {})
             
             # Xử lý mệnh giá (bỏ dấu chấm phân cách ngàn, thay phẩy decimal thành chấm)
             menh_gia_str = str(c1.get("menhGia", 0)).replace('.', '').replace(',', '.')
@@ -766,11 +605,11 @@ class SystemService2:
             ngay_dh = parse_d(c1.get("ngayDaoHan"))
             
             # Xử lý lãi suất (ví dụ 8,5 -> 8.5)
-            lai_suat_str = str(c2.get("laiSuat", 0)).replace(',', '.')
+            lai_suat_str = str(c3.get("laiSuat", 0)).replace(',', '.')
             lai_suat_cd = float(lai_suat_str) / 100.0
             
             r_user = USER_INTEREST_RATE / 100.0
-            tan_suat = c2.get("tanSuatTraLai", "Cuối kỳ")
+            tan_suat = c3.get("tanSuatTraLai", "Cuối kỳ")
 
             # Validation
             if not ngay_ph or not ngay_dh: return 0.0
@@ -783,7 +622,7 @@ class SystemService2:
             # 1. Tìm ngày trả lãi gần nhất trước đó (Last Coupon Date)
             last_coupon = self._get_last_coupon_date(ngay_ph, ngay_dh, tan_suat, view_date)
 
-            # 2. Tính giá gốc (Base Price) tại đầu kỳ này
+            # 3. Tính giá gốc (Base Price) tại đầu kỳ này
             # Để tính Base, ta cần Next Coupon của cái Last Coupon đó
             next_coupon_for_base = self._get_next_coupon_date(ngay_ph, ngay_dh, tan_suat, last_coupon)
             
@@ -800,7 +639,7 @@ class SystemService2:
             # Giá = Giá Gốc + (Giá Gốc * R_User * Số ngày / 365)
             final_price = price_base + (price_base * r_user * days_passed) / 365.0
 
-            return round(final_price, 2)
+            return round(final_price, 3)
 
         except Exception as e:
             print(f"Error calc price: {e}")
@@ -819,7 +658,7 @@ class SystemService2:
                 days_in_period = (maturity_date - last_date).days
                 return M + (M * r_CD * days_in_period / 365.0)
 
-        # 2. Tính dòng tiền tương lai (Future Value - Tử số)
+        # 3. Tính dòng tiền tương lai (Future Value - Tử số)
         future_value = 0.0
         
         if "cuối kỳ" in (freq_str or "").lower():
@@ -850,11 +689,11 @@ class SystemService2:
         s = (freq or "").lower()
         if "cuối kỳ" in s: return end
         
-        months = 12
+        months = 13
         if "3 tháng" in s or "theo quý" in s: months = 3
         elif "6 tháng" in s or "bán niên" in s: months = 6
         elif "1 tháng" in s or "hàng tháng" in s: months = 1
-        elif "hàng năm" in s or "1 năm" in s: months = 12
+        elif "hàng năm" in s or "1 năm" in s: months = 13
         
         d = start
         limit = 0
@@ -870,11 +709,11 @@ class SystemService2:
         # Nếu trả cuối kỳ, ngày bắt đầu tính lãi luôn là ngày phát hành
         if "cuối kỳ" in s: return start
         
-        months = 12
+        months = 13
         if "3 tháng" in s or "theo quý" in s: months = 3
         elif "6 tháng" in s or "bán niên" in s: months = 6
         elif "1 tháng" in s or "hàng tháng" in s: months = 1
-        elif "hàng năm" in s or "1 năm" in s: months = 12
+        elif "hàng năm" in s or "1 năm" in s: months = 13
         
         d = start
         prev = start
@@ -892,7 +731,7 @@ class SystemService2:
         return prev
 
     def _log_transaction(self, uid, action, amt, date, note):
-        self.transaction_repo.add_transaction(Transaction2(uid, action, amt, date, note))
+        self.transaction_repo.add_transaction(Transaction3(uid, action, amt, date, note))
 
     def calculate_user_CD(self, user_id, view_date_str=None):
         # 1. Parse ngày xem
@@ -903,7 +742,7 @@ class SystemService2:
                 target_date = date.today()
         else:
             target_date = date.today()
-        # 2. Lấy User Account
+        # 3. Lấy User Account
         user_acc = self.finsight_repo.get_user_account(user_id)
         total_net_worth = 0 
         for asset in user_acc.assets:
@@ -912,5 +751,5 @@ class SystemService2:
             cd_info = self.cd_repo.get_cd_by_id(ma_cd)
             price = self._calculate_cd_price_dynamic(cd_info, target_date)
             total_net_worth += so_luong * price
-        return round(total_net_worth, 2)
+        return round(total_net_worth, 3)
     

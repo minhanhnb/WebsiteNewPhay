@@ -1,7 +1,8 @@
+import datetime
 from .base_repo import BaseRepository
 from models.Finsight import FinsightUser, FinsightSystem
 from firebase_admin import firestore
-
+from google.cloud.firestore import FieldFilter, Query
 class FinsightRepository(BaseRepository):
     def __init__(self):
         # BaseRepo init collection gốc (không quan trọng lắm vì ta dùng sub-collections)
@@ -88,3 +89,85 @@ class FinsightRepository(BaseRepository):
             ref = self.log_col.document(log_id)
             batch.update(ref, {"status": "PROCESSED"})
         batch.commit()
+
+    def get_profit_history(self, user_id, start_date_str, end_date_str):
+        try:
+            docs = self.db.collection('finsight_users').document(user_id)\
+                          .collection('profit_history')\
+                          .where(filter=FieldFilter('date', '>=', start_date_str))\
+                          .where(filter=FieldFilter('date', '<=', end_date_str))\
+                          .stream()
+            
+            return [d.to_dict() for d in docs]
+        except Exception as e:
+            print(f"Error getting history: {e}")
+            return []
+        
+    def save_daily_profit(self, user_id, date_str, amount):
+        try:
+            doc_ref = self.db.collection('finsight_users').document(user_id)\
+                             .collection('profit_history').document(date_str)
+            
+            doc_ref.set({
+                "date": date_str,
+                "amount": amount,
+                # [FIX]: Gọi datetime.datetime.now() thay vì datetime.now()
+                "updated_at": datetime.datetime.now(), 
+                "note": "Auto-saved via Dashboard View"
+            })
+            return True
+        except Exception as e:
+            print(f"Error saving daily profit repo: {e}")
+            return False
+        
+    # 1. Lấy snapshot gần nhất để xác định điểm bắt đầu
+    def get_latest_snapshot(self, user_id):
+        try:
+            # Sắp xếp giảm dần theo date, lấy 1 cái đầu tiên
+            docs = self.db.collection('finsight_users').document(user_id)\
+                          .collection('daily_snapshots')\
+                          .order_by('date', direction=firestore.Query.DESCENDING)\
+                          .limit(1).stream()
+            
+            for doc in docs:
+                return doc.to_dict()
+            return None
+        except Exception as e:
+            print(f"Error getting latest snapshot: {e}")
+            return None
+
+    # 2. Hàm lưu Batch (Lưu nhiều ngày cùng lúc cho nhanh)
+    def save_batch_data(self, user_id, snapshots_data, profits_data):
+        """
+        snapshots_data: List các dict snapshot cần lưu
+        profits_data: List các dict profit cần lưu
+        """
+        batch = self.db.batch()
+        
+        # Add Snapshots vào Batch
+        for snap in snapshots_data:
+            doc_ref = self.db.collection('finsight_users').document(user_id)\
+                             .collection('daily_snapshots').document(snap['date'])
+            batch.set(doc_ref, snap)
+            
+        # Add Profits vào Batch
+        for prof in profits_data:
+            doc_ref = self.db.collection('finsight_users').document(user_id)\
+                             .collection('profit_history').document(prof['date'])
+            batch.set(doc_ref, prof)
+            
+        # Commit 1 lần duy nhất
+        batch.commit()
+
+
+    def get_all_transactions(self, user_id, up_to_date_str):
+        try:
+            docs = self.db.collection('transactions')\
+                        .where(filter=FieldFilter('user_id', '==', user_id))\
+                        .where(filter=FieldFilter('date', '<=', up_to_date_str))\
+                        .order_by('date', direction=Query.ASCENDING)\
+                        .stream()
+            return [d.to_dict() for d in docs]
+        except Exception as e:
+            print(f"Error getting transactions: {e}")
+            return []
