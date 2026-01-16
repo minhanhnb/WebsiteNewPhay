@@ -14,38 +14,80 @@ class SystemService2:
         self.cd_repo = cd_repo
         self.bank_repo = bank_repo
         
-
     def get_full_overview(self, user_id, view_date_str=None):
         """
         Tổng hợp dữ liệu Dashboard.
-        [FIXED] Logic tính lãi ngày: Loại bỏ tài sản mới mua trong ngày khỏi tính toán lãi qua đêm.
+        [FIXED] Logic Cash Time-Travel: Trừ ngược các khoản lãi tương lai để ra cash quá khứ đúng nhất.
         """
-        # 1. Xác định ngày định giá (T) và ngày hôm trước (T-1)
+        # 1. Xác định ngày định giá (T)
         if view_date_str:
             try:
-                target_date = datetime.strptime(view_date_str, "%Y-%m-%d").date()
+                target_date_obj = datetime.strptime(view_date_str, "%Y-%m-%d").date()
+                target_date_str = view_date_str
             except ValueError:
-                target_date = date.today()
+                target_date_obj = date.today()
+                target_date_str = date.today().isoformat()
         else:
-            target_date = date.today()
-        # 2. LẤY VÍ USER
+            target_date_obj = date.today()
+            target_date_str = date.today().isoformat()
+        
+        target_date_clean = str(target_date_str or "").strip()[:10]
+
+        # 2. LẤY DỮ LIỆU
         user_wallet = self.drawer_repo.get_user_account(user_id)
+        raw_transactions = self.transaction_repo.get_transactions_by_user(user_id)
+
+        # 3. XỬ LÝ TRANSACTION: TÍNH LÃI HÔM NAY & TÍNH TỔNG LÃI TƯƠNG LAI
+        calculated_profit_today = 0.0
+        future_interest_sum = 0.0 # Biến chứa tổng lãi phát sinh SAU ngày xem
+        
+        history_data = []
+
+        for doc in raw_transactions:
+            data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
+            trans_id = doc.id if hasattr(doc, 'id') else data.get('id')
+            
+            t_date = data.get("date_trans")
+            t_type = data.get("action_type") or data.get("action")
+            t_amount = float(data.get("amount", 0))
+            t_status = data.get("status")
+
+            # Clean date transaction
+            t_date_clean = str(t_date or "").strip()[:10]
+
+            # A. Tính Profit Today (Logic cũ đã fix)
+            if t_date_clean == target_date_clean and t_type == "TIENLAI":
+                calculated_profit_today += t_amount
+
+            # B. [LOGIC MỚI] Tính tổng lãi "Tương lai" (Lớn hơn ngày xem)
+            # Logic: Nếu ngày giao dịch > ngày xem -> Đây là tiền chưa nên có ở thời điểm xem -> Cần trừ ra
+            if t_date_clean > target_date_clean and t_type == "TIENLAI":
+                future_interest_sum += t_amount
+
+            history_data.append({
+                "id": trans_id,
+                "date_trans": t_date,
+                "action_type": t_type,
+                "amount": t_amount,
+                "status": t_status
+            })
+
+        # 4. TÍNH CASH TẠI THỜI ĐIỂM XEM (ADJUSTED CASH)
+        current_real_cash = float(user_wallet.cash)
+        
+        # Cash hiển thị = Cash thực tế hiện tại - Tổng lãi phát sinh sau ngày xem
+        adjusted_view_cash = current_real_cash - future_interest_sum
+
+        # 5. TỔNG HỢP DỮ LIỆU TRẢ VỀ
+        total_net_worth = self.calculate_user_CD(user_id, target_date_obj.isoformat())
+
         user_data = user_wallet.to_dict()
         
-        daily_profit_total = 0.0
-        
+        # [QUAN TRỌNG] Gán Cash đã điều chỉnh vào kết quả trả về
+        user_data['cash'] = round(adjusted_view_cash, 2)
+        user_data['profit_today'] = round(calculated_profit_today, 2)
 
-        # 4. TỔNG HỢP (Giữ nguyên)
-        total_net_worth = self.calculate_user_CD(user_id, target_date.isoformat())
-
-        db_profit_date = user_data.get('last_profit_date')
-        if db_profit_date != target_date:
-            user_data['profit_today'] = 0.0
-        
-        # User Data giờ đã có thêm accumulated_profit từ to_dict() của Drawer
-        user_data['cash'] = round(user_data.get('cash', 0), 2)
-        user_data['cash'] = round(user_data.get('cash', 0), 2)
-
+        # ... (Các phần lấy Finsight, Bank, Queue giữ nguyên) ...
         user_fund = self.finsight_repo.get_user_account(user_id)
         system_fund = self.finsight_repo.get_system_account()
         bank_data = self.bank_repo.get_system_bank()
@@ -55,37 +97,21 @@ class SystemService2:
         finsight_data = system_fund.to_dict()
         finsight_data['user'] = user_fund.to_dict()
         finsight_data['inventory'] = processed_inventory
-        print(finsight_data)
+        
         queue_list =[]
         for doc in pending_docs: 
             data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
             item = {
-            "id": data.get("id") if data.get("id") else getattr(doc, 'id', None),
-            "type": data.get("type") if data.get("type") else getattr(doc, 'type', None),
-            "amount": data.get("amount") if data.get("amount") else getattr(doc, 'amount', None),
-            "created_at": data.get("created_at") if data.get("created_at") else getattr(doc, 'created_at', None),
-            "details": data.get("details") if data.get("details") else getattr(doc, 'details', None),
-        } 
+                "id": data.get("id") if data.get("id") else getattr(doc, 'id', None),
+                "type": data.get("type") if data.get("type") else getattr(doc, 'type', None),
+                "amount": data.get("amount") if data.get("amount") else getattr(doc, 'amount', None),
+                "created_at": data.get("created_at") if data.get("created_at") else getattr(doc, 'created_at', None),
+                "details": data.get("details") if data.get("details") else getattr(doc, 'details', None),
+            } 
             queue_list.append(item)
 
-
-        raw_transactions = self.transaction_repo.get_transactions_by_user(user_id)
-    
-        # 3. Format lại history để Frontend dễ dùng (Clean Data)
-        history_data = []
-        for doc in raw_transactions:
-            # Sử dụng logic lấy ID an toàn chúng ta đã bàn
-            data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
-            history_data.append({
-                "id": doc.id if hasattr(doc, 'id') else data.get('id'),
-                "date_trans": data.get("date_trans"),
-                "action_type": data.get("action_type") or data.get("action"),
-                "amount": data.get("amount", 0),
-                "status": data.get("status")
-            })
-
         return {
-            "user": user_data,
+            "user": user_data, 
             "history": history_data, 
             "finsight": finsight_data,
             "bank": bank_data.to_dict(),
@@ -93,10 +119,120 @@ class SystemService2:
             "total_balance_estimate": total_net_worth,
             "meta": {
                 "server_time": datetime.now().isoformat(),
-                "valuation_date": target_date.isoformat(),
-                "mode": "FIXED_INTRADAY_PNL" 
+                "valuation_date": target_date_str,
+                "mode": "COMPUTED_DAILY_PNL_AND_CASH" 
             }
         }
+    # def get_full_overview(self, user_id, view_date_str=None):
+    #     """
+    #     Tổng hợp dữ liệu Dashboard.
+    #     [FIXED] Logic tính lãi ngày: Loại bỏ tài sản mới mua trong ngày khỏi tính toán lãi qua đêm.
+    #     """
+    #     # 1. Xác định ngày định giá (T) và ngày hôm trước (T-1)
+    #     if view_date_str:
+    #         try:
+    #             target_date = datetime.strptime(view_date_str, "%Y-%m-%d").date()
+    #         except ValueError:
+    #             target_date = date.today()
+    #     else:
+    #         target_date = date.today()
+
+    #     # 2. LẤY VÍ USER
+    #     user_wallet = self.drawer_repo.get_user_account(user_id)
+    #     user_data = user_wallet.to_dict()
+    #     # 3. [LOGIC MỚI] Tính Profit Today từ Transaction
+    #     raw_transactions = self.transaction_repo.get_transactions_by_user(user_id)
+    #     # Lọc các giao dịch trong ngày xem có type là 'TIENLAI'
+    #     calculated_profit_today = 0.0
+    #     history_data = []
+        
+    #     for doc in raw_transactions:
+    #         data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
+            
+    #         # Parse dữ liệu transaction
+    #         trans_date = data.get("date_trans")
+    #         action_type = data.get("action_type") or data.get("action")
+    #         amount = float(data.get("amount", 0))
+            
+    #         t_date_clean = str(trans_date or "").strip()[:10]
+    #         target_date_clean = str(target_date or "").strip()[:10]
+
+    #         # Nếu đúng ngày xem VÀ là loại TIENLAI -> Cộng vào profit_today
+    #         if t_date_clean == target_date_clean and action_type == "TIENLAI":
+    #             calculated_profit_today += amount
+    #             print("hello")
+
+    #         # Append vào history list để trả về FE (như code cũ)
+    #         history_data.append({
+    #             "id": doc.id if hasattr(doc, 'id') else data.get('id'),
+    #             "date_trans": trans_date,
+    #             "action_type": action_type,
+    #             "amount": amount,
+    #             "status": data.get("status")
+    #         })
+    
+        
+
+    #     # 4. TỔNG HỢP (Giữ nguyên)
+    #     total_net_worth = self.calculate_user_CD(user_id, target_date.isoformat())
+
+        
+    #     user_data['profit_today']=calculated_profit_today
+    #     # User Data giờ đã có thêm accumulated_profit từ to_dict() của Drawer
+    #     user_data['cash'] = round(user_data.get('cash', 0), 2)
+
+    #     user_fund = self.finsight_repo.get_user_account(user_id)
+    #     system_fund = self.finsight_repo.get_system_account()
+    #     bank_data = self.bank_repo.get_system_bank()
+    #     pending_docs = self.finsight_repo.get_pending_logs()
+    #     processed_inventory = self.get_available_inventory_with_price(view_date_str)
+
+    #     finsight_data = system_fund.to_dict()
+    #     finsight_data['user'] = user_fund.to_dict()
+    #     finsight_data['inventory'] = processed_inventory
+    #     print(finsight_data)
+    #     queue_list =[]
+    #     for doc in pending_docs: 
+    #         data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
+    #         item = {
+    #         "id": data.get("id") if data.get("id") else getattr(doc, 'id', None),
+    #         "type": data.get("type") if data.get("type") else getattr(doc, 'type', None),
+    #         "amount": data.get("amount") if data.get("amount") else getattr(doc, 'amount', None),
+    #         "created_at": data.get("created_at") if data.get("created_at") else getattr(doc, 'created_at', None),
+    #         "details": data.get("details") if data.get("details") else getattr(doc, 'details', None),
+    #     } 
+    #         queue_list.append(item)
+
+
+    #     raw_transactions = self.transaction_repo.get_transactions_by_user(user_id)
+    
+    #     # 3. Format lại history để Frontend dễ dùng (Clean Data)
+    #     # history_data = []
+    #     # for doc in raw_transactions:
+    #     #     # Sử dụng logic lấy ID an toàn chúng ta đã bàn
+    #     #     data = doc.to_dict() if hasattr(doc, 'to_dict') else doc
+    #     #     history_data.append({
+    #     #         "id": doc.id if hasattr(doc, 'id') else data.get('id'),
+    #     #         "date_trans": data.get("date_trans"),
+    #     #         "action_type": data.get("action_type") or data.get("action"),
+    #     #         "amount": data.get("amount", 0),
+    #     #         "status": data.get("status")
+    #     #     })
+
+
+    #     return {
+    #         "user": user_data,
+    #         "history": history_data, 
+    #         "finsight": finsight_data,
+    #         "bank": bank_data.to_dict(),
+    #         "queue": queue_list,
+    #         "total_balance_estimate": total_net_worth,
+    #         "meta": {
+    #             "server_time": datetime.now().isoformat(),
+    #             "valuation_date": target_date.isoformat(),
+    #             "mode": "FIXED_INTRADAY_PNL" 
+    #         }
+    #     }
         
     # --- 1. TÍNH TỔNG TÀI SẢN (Dùng cho UI TTT Dashboard) ---
     def calculate_user_net_worth(self, user_id, date_str=None):
@@ -180,8 +316,8 @@ class SystemService2:
 
                     self._log_transaction(user_id, "TIENLAI", amount_abs, date_str, f"Tiền lãi ")
                     #self.drawer_repo.update_profit_today(user_id, amount_abs)
-                    self.drawer_repo.record_profit(user_id, amount_abs, date_str)
-                    print("đang trong not has")
+                    self.drawer_repo.add_accumulated_profit(user_id, amount_abs)
+                    print("Đang ở case sync Lãi")                   
                     result["case"] = "DAILY_PROFIT_SYNC"
                     result["actions"].append(f"Payout Interest to Drawer: {amount_abs}")
                     return {**result, "status": "success"}

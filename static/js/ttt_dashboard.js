@@ -62,7 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         history.forEach(item => {
             const row = document.createElement("tr");
-            const isNap = item.type === "NAP";
+            const isNap = item.action_type === "NAP";
             const cls = isNap ? "type-nap" : "type-rut";
             const label = isNap ? "Nạp tiền" : "Rút tiền";
             const sign = isNap ? "+" : "-";
