@@ -53,6 +53,14 @@ def api_allocate_cd():
 def api_syncDiff():
     return controller.sync_Diff()
 
+# --- ROUTES DEFINITIONS ---
+
+@system2_bp.route("/system2/api/sync-all", methods=["POST"])
+def api_sync_all():
+    """
+    Hợp nhất syncDiff và syncBank vào một luồng duy nhất.
+    """
+    return controller.sync_diff_and_bank() 
 @system2_bp.route("/system2/api/withdraw", methods=["POST"])
 def api_withdraw():
     return controller.withdraw_money()

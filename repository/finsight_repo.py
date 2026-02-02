@@ -81,6 +81,10 @@ class FinsightRepository(BaseRepository):
     # Luôn trả về dữ liệu thô (Snapshots) để tầng Service có quyền truy cập .id và .to_dict()
         return self.log_col.where('status', '==', 'PENDING').get()
     
+    def get_processed_logs(self):
+    # Luôn trả về dữ liệu thô (Snapshots) để tầng Service có quyền truy cập .id và .to_dict()
+        return self.log_col.where('status', '==', 'PROCESSED').get()
+    
 
 
     def mark_logs_processed(self, log_ids):

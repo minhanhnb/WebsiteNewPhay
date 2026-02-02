@@ -8,12 +8,14 @@
 <div class="system-container">
     
    <div class="header-row">
-        <h3 class="title">Hệ thống cách 2</h3>
+        <h3 class="title">Hệ thống 2</h3>
+        
 
         <button class="btn-reset" id="btnResetData">
             Xóa Data
         </button>
         </div>
+        <p>Hệ thống phân bổ được mọi ngày (kể cả thứ 7, CN, lễ, Tết). CD định giá theo giá yield lãi kép 4%, tính theo giá ngày thực hiện lệnh</p>
 
 
            <hr class="my-2 opacity-0 ">
@@ -35,25 +37,22 @@
     </div>
 
     <div class="custom-input-group">
-        <span class="custom-label">Ngày sync chênh lệch</span>
+        <span class="custom-label">Ngày thực hiện lệnh</span>
         <input type="date" id="settleDateInput" class="custom-input">
     </div>
 
 </div>
-        <div id="allocationNotice" class="alert alert-info small mb-2" style="display: none;">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <span id="allocationNoticeText"></span>
-                    </div>
+       
 
                     
     
                
                 <button class="btn-minimal btn-outline-primary-minimal justify-content-center py-2 shadow-sm" id="btnSyncDiff">
-                    <i class="fas fa-magic me-2"></i> Sync chênh lệch
+                    <i class="fas fa-magic me-2"></i> Phân bổ
                 </button>
-                <button class="btn-minimal btn-outline-primary-minimal justify-content-center py-2 shadow-sm" id="btnSyncBank">
+                <!-- <button class="btn-minimal btn-outline-primary-minimal justify-content-center py-2 shadow-sm" id="btnSyncBank">
                     <i class="fas fa-sync me-2"></i> Gửi lệnh Lưu ký (NHLK)
-                </button>
+                </button> -->
 
 
     </div>
@@ -61,14 +60,14 @@
     <div class="panel-right">
         <div class="queue-header">
             <div class="fw-bold text-muted small text-uppercase">
-                Lệnh chờ gửi NHLK
+                Lệnh đã gửi NHLK
             </div>
         </div>
-        <div id="allocationNotice" class="alert alert-primary d-flex align-items-start small mb-3" role="alert" style="display: none; border-left: 4px solid #0d6efd;">
+        <!-- <div id="allocationNotice" class="alert alert-primary d-flex align-items-start small mb-3" role="alert" style="display: none; border-left: 4px solid #0d6efd;">
     <i class="fas fa-info-circle fa-lg me-2 mt-1"></i>
     <div id="allocationNoticeText">
         </div>
-</div>
+</div> -->
 
             
         <div class="queue-list" id="queueContainer">

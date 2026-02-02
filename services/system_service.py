@@ -316,7 +316,7 @@ class SystemService:
         if current_cash >= amount:
             self.finsight_repo.update_user_cash(user_id, -amount)
             self.finsight_repo.add_settlement_log(user_id, "CASH_OUT", amount, date_str)
-            self._log_transaction(user_id, "RUT", amount, date_str, "Rút từ Cash Remainder")
+            self._log_transaction_async(user_id, "RUT", amount, date_str, "Rút từ Cash Remainder")
             return {"status": "success", "message": "Rút tiền thành công"}
 
         # B. Thiếu Cash -> Bán CD
@@ -369,7 +369,9 @@ class SystemService:
         # 4. Log Sync
         self.finsight_repo.add_settlement_log(user_id, "LIQUIDATE_CD", cash_raised,date_str, {"sold": assets_to_sell})
         self.finsight_repo.add_settlement_log(user_id, "CASH_OUT", amount, date_str)
-        
+        self._log_transaction_async(
+            user_id, "RUT", amount, date_str, "Rút tiền mặt"
+        )
         self._log_transaction_async(
                 user_id,
                 "LIQUIDATE_CD", # Tương đương SELL
@@ -378,9 +380,7 @@ class SystemService:
                 "Bán CD để rút tiền",
                 details={"sold": assets_to_sell} # Lưu list đã bán để trừ khi Replay
             )
-        self._log_transaction_async(
-            user_id, "RUT", amount, date_str, "Rút tiền mặt"
-        )
+       
         return {"status": "success", "message": "Rút tiền & Thanh khoản thành công"}
     # --- 5. LẤY KHO FINSIGHT KÈM GIÁ (Dùng cho UI "Tài sản Finsight") ---
     def get_available_inventory_with_price(self, view_date_str=None):

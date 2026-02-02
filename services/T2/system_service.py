@@ -110,7 +110,8 @@ class SystemService2:
 
         system_fund = self.finsight_repo.get_system_account()
         bank_data = self.bank_repo.get_system_bank()
-        pending_docs = self.finsight_repo.get_pending_logs()
+        pending_docs = self.finsight_repo.get_processed_logs()
+        print(pending_docs)
         processed_inventory = self.get_available_inventory_with_price(view_date_str)
 
         finsight_data = system_fund.to_dict()
@@ -395,7 +396,7 @@ class SystemService2:
                 cash_raised += revenue
                 shortage -= revenue # Giảm lượng tiền còn thiếu
                 
-                assets_to_sell.append({"maCD": ma_cd, "soLuong": qty})
+                assets_to_sell.append({"maCD": ma_cd, "soLuong": qty, "giaCD" : price})
                 
                 if so_luong - qty > 0:
                     new_as = asset.copy()

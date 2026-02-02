@@ -161,3 +161,49 @@ class SystemController2:
         except Exception as e:
             print(f"Sync Bank Error: {e}")
             return jsonify({"success": False, "message": str(e)}), 500
+        
+
+    # Trong file system_controller.py
+
+    def sync_diff_and_bank(self):
+        """
+        Hợp nhất: Sync chênh lệch ngăn tủ VÀ đẩy log sang Bank trong 1 lần gọi.
+        """
+        try:
+            # 1. Lấy dữ liệu từ Body JSON (Giống hàm sync_Diff của bạn)
+            data = request.get_json() or {}
+            user_id = data.get('user_id', 'user_default')
+            date_str = data.get('date')
+
+            # 2. Gọi Service xử lý Diff (Lấy dữ liệu thuần túy từ Service)
+            # Học từ sync_Diff: result = self.service.sync_wallet_state_with_drawer(user_id, date_str)
+            diff_result = self.service.sync_wallet_state_with_drawer(user_id, date_str)
+            
+            if diff_result.get('status') != 'success':
+                return jsonify({
+                    "success": False,
+                    "message": f"Lỗi Sync Diff: {diff_result.get('message')}"
+                }), 400
+
+            # 3. Nếu bước 1 OK, gọi tiếp Service đẩy sang Bank (Học từ sync_bank)
+            bank_result = self.service.sync_batch_to_bank()
+
+            # 4. Trả về kết quả tổng hợp (JSON duy nhất cho Client)
+            return jsonify({
+                "success": bank_result.get('status') == 'success',
+                "message": "Hoàn thành đồng bộ chênh lệch và ngân hàng",
+                "diff_details": {
+                    "case": diff_result.get('case'),
+                    "actions": diff_result.get('actions', [])
+                },
+                "bank_details": {
+                    "message": bank_result.get('message')
+                }
+            }), 200
+
+        except Exception as e:
+            print(f"Critical Controller Error [sync_diff_and_bank]: {str(e)}")
+            return jsonify({
+                "success": False, 
+                "message": f"Lỗi thực thi Controller: {str(e)}"
+            }), 500
